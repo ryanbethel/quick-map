@@ -1,0 +1,11 @@
+Features
+- Run map operation clientside
+- Proxy Maps
+- Service worker for offline maps 
+- Download multiple zoom levels for offline map
+- Double click to zoom and center
+- Long click to mark point
+- click and drag to pan
+- remember last zoom and location
+- update location periodically
+- Hide zip option as backup
