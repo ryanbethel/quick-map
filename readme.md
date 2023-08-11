@@ -1,4 +1,4 @@
-Features
+Features to add
 - Double click to zoom and center
 - Long click to mark point
 - click and drag to pan
