@@ -52,12 +52,29 @@ img.map-tile {
 }
 
 .marker {
+  color: var(--primary);
   position: absolute;
   z-index: 10; 
   left: 50%;
   top: 50%;
   ${ offset && `transform: translate(${offset.x-256/2}px, ${offset.y-256/2}px); `}
 }
+
+.zoomControls > form {
+  margin: 0;
+}
+
+.zoomControls > form > button {
+  margin-bottom: 0;
+}
+
+.zipControls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+
+
 
 </style>
 
@@ -76,8 +93,8 @@ img.map-tile {
   </div>
   <div class="zoomControls">
     <form action="/zoom/${Math.min(zoom+1,16)}/zip/${zipcode}" method="GET">
-      <button class="btn btn-secondary" type="submit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
+      <button class="secondary" type="submit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
           <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1 6.538 6.538 0 0 1-1.398 1.4z"/>
           <path fill-rule="evenodd" d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5z"/>
@@ -85,8 +102,8 @@ img.map-tile {
       </button>
     </form>
     <form action="/zoom/${Math.max(zoom-1,0)}/zip/${zipcode}" method="GET">
-      <button class="btn btn-secondary" type="submit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">
+      <button class="secondary"   type="submit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
           <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1 6.538 6.538 0 0 1-1.398 1.4z"/>
           <path fill-rule="evenodd" d="M3 6.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5z"/>
@@ -100,15 +117,13 @@ img.map-tile {
   </svg>
 </div>
 <div class="mapControls">
-  <form class="d-none" id="geo-location-form" action="" method="GET">
-    <div class="d-grid gap-2 m-2">
-      <button type=submit class="btn btn-primary currentLocation">Find Me</button>
-    </div>
+  <form style="display:none;" id="geo-location-form" action="" method="GET">
+    <button type=submit class="currentLocation">Find Me</button>
   </form>
   <form action="/zoom/${zoom}/zip" method="POST">
-    <div id="zipControls controls" class="input-group mb-3">
+    <div class="zipControls" >
       <input class="form-control" name="zipcode" type="text" id="zipcode" value="${zipcode}" placeholder="Enter Zipcode">
-      <button class="btn btn-outline-secondary" type="submit" id="getZip">Get Zip Code</button>
+      <button class="secondary" type="submit" id="getZip">Get Zip Code</button>
     </div>
   </form>
 </div>
@@ -117,7 +132,7 @@ img.map-tile {
 <script type="module">
 
   const geoForm = document.getElementById('geo-location-form');
-  geoForm.classList.remove('d-none');
+  geoForm.style.display='block';
   geoForm.addEventListener("submit", handleGeoSubmit);
 
   function getCurrentLocation() {

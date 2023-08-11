@@ -12,7 +12,6 @@ function pixelsPerDegree(zoom){
   }
 }
 export async function get(req){
-  console.log(req)
 
   const latitude = parseFloat(req.params.latitude) 
   const longitude = parseFloat(req.params.longitude) 
