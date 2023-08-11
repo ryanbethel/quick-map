@@ -1,5 +1,5 @@
 export default function map({html,state}){
-  const { mapTileGrid, latitude, longitude, zoom, scale, offset, gridSize} = state.store
+  const { mapTileGrid, latitude, longitude, zoom, scale, offset, gridSize, zipcode} = state.store
   return html`
 <style scope=global>
   body {
@@ -63,8 +63,10 @@ img.map-tile {
 
 <div class="mapGridContainer">
   <div draggable="true" class="mapGrid">
+
     ${mapTileGrid ? mapTileGrid.map(row => row.map(col=> `<img class="map-tile" src="${col}" 
         loading="lazy" width="256" height="256">`).join('\n')).join('\n') : ''}
+
     <svg width="60" height="25" class="mapScale">
         <line x1="0" y1="10" x2="50" y2="10" stroke="black" stroke-width="2"/>
         <text x="25" y="25" font-family="Arial" font-size="12" fill="black" text-anchor="middle">${(
@@ -73,8 +75,7 @@ img.map-tile {
     </svg>
   </div>
   <div class="zoomControls">
-    <form action="/" method="POST">
-      <input type="hidden" name="zoomIn" value="true" />
+    <form action="/zoom/${Math.min(zoom+1,16)}/zip/${zipcode}" method="GET">
       <button class="btn btn-secondary" type="submit">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
@@ -83,8 +84,7 @@ img.map-tile {
         </svg>
       </button>
     </form>
-    <form action="/" method="POST">
-      <input type="hidden" name="zoomOut" value="true" />
+    <form action="/zoom/${Math.max(zoom-1,0)}/zip/${zipcode}" method="GET">
       <button class="btn btn-secondary" type="submit">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
@@ -100,16 +100,14 @@ img.map-tile {
   </svg>
 </div>
 <div class="mapControls">
-  <form class="d-none" id="geo-location-form" action="/" method="POST">
+  <form class="d-none" id="geo-location-form" action="" method="GET">
     <div class="d-grid gap-2 m-2">
-      <input type="hidden" name="latitude" value="" />
-      <input type="hidden" name="longitude" value="" />
       <button type=submit class="btn btn-primary currentLocation">Find Me</button>
     </div>
   </form>
-  <form action="/" method="POST">
+  <form action="/zoom/${zoom}/zip" method="POST">
     <div id="zipControls controls" class="input-group mb-3">
-      <input class="form-control" name="zipCode" type="text" id="zipcode" placeholder="Enter Zipcode">
+      <input class="form-control" name="zipcode" type="text" id="zipcode" value="${zipcode}" placeholder="Enter Zipcode">
       <button class="btn btn-outline-secondary" type="submit" id="getZip">Get Zip Code</button>
     </div>
   </form>
@@ -145,22 +143,18 @@ img.map-tile {
   async function handleGeoSubmit(event) {
     event.preventDefault();
     const geoLocation = await getCurrentLocation();
-    const latitudeInput = geoForm.querySelector('input[name="latitude"]'); 
-    latitudeInput.value = geoLocation.latitude;
-    const longitudeInput = geoForm.querySelector('input[name="longitude"]');
-    longitudeInput.value = geoLocation.longitude;
-    geoForm.submit();
+    window.location.assign('/zoom/${zoom}'+'/lat/'+geoLocation.latitude+'/lon/'+geoLocation.longitude)
   }
 
 
- const draggable = document.querySelector('.mapGrid[draggable="true"]');
-  draggable.addEventListener('dragstart', function(event) {
-    console.log("dragging")
-    draggable.addEventListener('dragend', (event)=>{
-      console.log(event)
-      console.log(event.x,event.y)
-    })
-  })
+ // const draggable = document.querySelector('.mapGrid[draggable="true"]');
+ //  draggable.addEventListener('dragstart', function(event) {
+ //    console.log("dragging")
+ //    draggable.addEventListener('dragend', (event)=>{
+ //      console.log(event)
+ //      console.log(event.x,event.y)
+ //    })
+ //  })
 
 </script>
 `}

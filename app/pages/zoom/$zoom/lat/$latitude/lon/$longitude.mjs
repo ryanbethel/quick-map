@@ -63,8 +63,10 @@ img.map-tile {
 
 <div class="mapGridContainer">
   <div draggable="true" class="mapGrid">
+
     ${mapTileGrid ? mapTileGrid.map(row => row.map(col=> `<img class="map-tile" src="${col}" 
         loading="lazy" width="256" height="256">`).join('\n')).join('\n') : ''}
+
     <svg width="60" height="25" class="mapScale">
         <line x1="0" y1="10" x2="50" y2="10" stroke="black" stroke-width="2"/>
         <text x="25" y="25" font-family="Arial" font-size="12" fill="black" text-anchor="middle">${(
@@ -73,7 +75,7 @@ img.map-tile {
     </svg>
   </div>
   <div class="zoomControls">
-    <form action="/" method="POST">
+    <form action="/zoom/${Math.min(zoom+1,16)}/lat/${latitude}/lon/${longitude}" method="GET">
       <input type="hidden" name="zoomIn" value="true" />
       <button class="btn btn-secondary" type="submit">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
@@ -83,7 +85,7 @@ img.map-tile {
         </svg>
       </button>
     </form>
-    <form action="/" method="POST">
+    <form action="/zoom/${Math.max(zoom-1,0)}/lat/${latitude}/lon/${longitude}" method="GET">
       <input type="hidden" name="zoomOut" value="true" />
       <button class="btn btn-secondary" type="submit">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">
@@ -100,16 +102,14 @@ img.map-tile {
   </svg>
 </div>
 <div class="mapControls">
-  <form class="d-none" id="geo-location-form" action="/" method="POST">
+  <form class="d-none" id="geo-location-form" action="" method="GET">
     <div class="d-grid gap-2 m-2">
-      <input type="hidden" name="latitude" value="" />
-      <input type="hidden" name="longitude" value="" />
       <button type=submit class="btn btn-primary currentLocation">Find Me</button>
     </div>
   </form>
-  <form action="/" method="POST">
+  <form action="/zoom/${zoom}/zip" method="POST">
     <div id="zipControls controls" class="input-group mb-3">
-      <input class="form-control" name="zipCode" type="text" id="zipcode" placeholder="Enter Zipcode">
+      <input class="form-control" name="zipcode" type="text" id="zipcode" placeholder="Enter Zipcode">
       <button class="btn btn-outline-secondary" type="submit" id="getZip">Get Zip Code</button>
     </div>
   </form>
@@ -117,6 +117,7 @@ img.map-tile {
 
 
 <script type="module">
+const zoom = ${zoom};
 
   const geoForm = document.getElementById('geo-location-form');
   geoForm.classList.remove('d-none');
@@ -145,22 +146,18 @@ img.map-tile {
   async function handleGeoSubmit(event) {
     event.preventDefault();
     const geoLocation = await getCurrentLocation();
-    const latitudeInput = geoForm.querySelector('input[name="latitude"]'); 
-    latitudeInput.value = geoLocation.latitude;
-    const longitudeInput = geoForm.querySelector('input[name="longitude"]');
-    longitudeInput.value = geoLocation.longitude;
-    geoForm.submit();
+    window.location.assign('/zoom/${zoom}'+'/lat/'+geoLocation.latitude+'/lon/'+geoLocation.longitude)
   }
 
 
- const draggable = document.querySelector('.mapGrid[draggable="true"]');
-  draggable.addEventListener('dragstart', function(event) {
-    console.log("dragging")
-    draggable.addEventListener('dragend', (event)=>{
-      console.log(event)
-      console.log(event.x,event.y)
-    })
-  })
+ // const draggable = document.querySelector('.mapGrid[draggable="true"]');
+ //  draggable.addEventListener('dragstart', function(event) {
+ //    console.log("dragging")
+ //    draggable.addEventListener('dragend', (event)=>{
+ //      console.log(event)
+ //      console.log(event.x,event.y)
+ //    })
+ //  })
 
 </script>
 `}
