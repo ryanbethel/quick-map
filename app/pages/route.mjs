@@ -90,10 +90,8 @@ request-directions {
 
     ${mapTileGrid ? mapTileGrid.map(row => row.map(col=> `
       <div class="tile-container">
-        <img class="map-tile" src="${col}" loading="lazy" width="256" height="256">
-        <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 10 L246 246" fill="none" stroke="red" stroke-width="3" />
-        </svg>
+        <img class="map-tile" src="${col.tileUrl}" loading="lazy" width="256" height="256">
+        ${col.route || ''}
       </div>
     `).join('\n')).join('\n') : ''}
 

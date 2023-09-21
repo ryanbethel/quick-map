@@ -100,7 +100,7 @@ img.map-tile {
           <path fill-rule="evenodd" d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5z"/>
         </svg>
       </button>
-    </form>
+    <!-- </form> -->
     <form action="/zoom/${Math.max(zoom-1,0)}/zip/${zipcode}" method="GET">
       <button class="secondary"   type="submit">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">

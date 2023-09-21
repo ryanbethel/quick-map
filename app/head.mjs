@@ -1,6 +1,6 @@
-// import { getStyles }  from '@enhance/arc-plugin-styles'
+import { getStyles }  from '@enhance/arc-plugin-styles'
 
-// const { linkTag } = getStyles
+const { linkTag } = getStyles
 
 export default function Head () {
   return  `
@@ -10,7 +10,8 @@ export default function Head () {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>Enhance Starter Project</title>
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css"> 
+      ${'' /*<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css"> */}
+      ${linkTag()}
       <link rel="icon" href="/_public/favicon.svg">
       <meta name="description" content="The HTML first full stack web framework.">
     </head>

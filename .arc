@@ -8,6 +8,11 @@ prune true
 enhance/arc-plugin-enhance
 enhance/styles-cribsheet
 
+@tables
+sessions
+  _idx *  
+  ttl ttl
+
 @aws
 runtime nodejs18.x
 
