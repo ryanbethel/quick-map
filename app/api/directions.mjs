@@ -1,116 +1,123 @@
-export async function post(req){
-  console.log(req.body);
-  const {start_lat,start_lon,end_lat,end_lon} = req.body
+// Directions handler.
+//
+// Contract (no client JS, no geolocation):
+//   POST /directions
+//     body: { start_address: string, end_address: string }
+//
+// Steps:
+//   1. Geocode both addresses via Nominatim.
+//   2. Ask Valhalla for an auto route between them.
+//   3. Save the encoded polyline + endpoints in the session.
+//   4. Redirect to /zoom/{zoom}/lat/{end_lat}/lon/{end_lon} so the unified
+//      map page renders with the route overlay arriving at the destination.
+//
+// Failure at any step writes a clear `directionsError` flash to the session
+// and bounces to /.
 
+import { randomUUID } from 'node:crypto'
+import data from '@begin/data'
+import { geocode } from '../lib/geocode.mjs'
 
-  const routingUrl = `https://valhalla1.openstreetmap.de/route?json={"locations":[ {"lat":${start_lat},"lon": ${start_lon}}, {"lat":${end_lat},"lon": ${end_lon}} ],"costing":"auto"}`
-  const osmDirections = await fetch(routingUrl) 
-  const route = await osmDirections.json();
-  console.log({route});
-  console.log( "polyline:",decodePolyline(route?.trip?.legs?.[0]?.shape)) 
-  console.log( "maneuvers",route.trip.legs[0].maneuvers)
+const VALHALLA_URL = 'https://valhalla1.openstreetmap.de/route'
+const ROUTE_TTL_SECONDS = 24 * 60 * 60 // routes expire from DDB after 24h
 
-  const newSession = {
-    ...req.session, 
-    end_lat, 
-    end_lon,
-    directions:{ 
-      polyline: "test",
-      // polyline:route?.trip?.legs?.[0]?.shape, 
-      // maneuvers:route.trip.legs[0].maneuvers?.map(maneuver=>maneuver.instruction)
-      maneuvers:route.trip.legs[0].maneuvers?.map(maneuver=>maneuver.instruction)[0]
-    }
+async function fetchRoute (start, end) {
+  const res = await fetch(VALHALLA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      locations: [
+        { lat: start.latitude, lon: start.longitude },
+        { lat: end.latitude, lon: end.longitude }
+      ],
+      costing: 'auto'
+    })
+  })
+  if (!res.ok) throw new Error(`Valhalla ${res.status}`)
+  const data = await res.json()
+  const leg = data?.trip?.legs?.[0]
+  if (!leg?.shape) throw new Error('Valhalla returned no route')
+  return {
+    polyline: leg.shape,
+    maneuvers: (leg.maneuvers || []).map(m => m.instruction)
   }
-  console.log(newSession);
-  return { 
-    location:'/route',
-    session: newSession    
+}
+
+function bail (req, message) {
+  return {
+    session: { ...req.session, directionsError: message },
+    location: '/'
   }
+}
 
+export async function post (req) {
+  const startAddress = (req.body?.start_address || '').trim()
+  const endAddress = (req.body?.end_address || '').trim()
+  console.log('[directions] start=%j end=%j', startAddress, endAddress)
 
-  // This is adapted from the implementation in Project-OSRM
-  // https://github.com/DennisOSRM/Project-OSRM-Web/blob/master/WebContent/routing/OSRM.RoutingGeometry.js
-
-  function decodePolyline(str, precision) {
-    var index = 0,
-      lat = 0,
-      lng = 0,
-      coordinates = [],
-      shift = 0,
-      result = 0,
-      byte = null,
-      latitude_change,
-      longitude_change,
-      factor = Math.pow(10, precision || 6);
-
-    // Coordinates have variable length when encoded, so just keep
-    // track of whether we've hit the end of the string. In each
-    // loop iteration, a single coordinate is decoded.
-    while (index < str.length) {
-
-      // Reset shift, result, and byte
-      byte = null;
-      shift = 0;
-      result = 0;
-
-      do {
-        byte = str.charCodeAt(index++) - 63;
-        result |= (byte & 0x1f) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-
-      latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-
-      shift = result = 0;
-
-      do {
-        byte = str.charCodeAt(index++) - 63;
-        result |= (byte & 0x1f) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-
-      longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-
-      lat += latitude_change;
-      lng += longitude_change;
-
-      coordinates.push([lat / factor, lng / factor]);
-    }
-
-    return coordinates;
+  if (!startAddress || !endAddress) {
+    return bail(req, 'Enter both a start and an end address.')
   }
 
+  // Geocode both addresses. Nominatim asks for ~1 req/sec so do these
+  // sequentially rather than in parallel.
+  let start, end
+  try {
+    start = await geocode(startAddress)
+    end = await geocode(endAddress)
+  } catch (e) {
+    console.log('[directions] geocode failed:', e.message)
+    return bail(req, `Address lookup failed (${e.message}).`)
+  }
+  if (!start) return bail(req, `Could not find start address: "${startAddress}"`)
+  if (!end) return bail(req, `Could not find end address: "${endAddress}"`)
 
+  console.log('[directions] resolved start=%o end=%o', start, end)
 
-
-
-  function latLonToTilePixel(lat, lon, zoom, tileX, tileY) {
-    const n = Math.pow(2, zoom);
-    const tileLat = Math.atan(Math.sinh(Math.PI * (1 - 2 * tileY / n))) * (180 / Math.PI);
-    const tileLon = tileX / n * 360 - 180;
-
-    const pixelX = ((lon + 180) / 360 * n * 256) % 256;
-    const pixelY = (256 / 2 - 256 * Math.log(Math.tan((Math.PI / 4) + (Math.PI / 2) * lat / 180)) / (2 * Math.PI)) % 256;
-
-    return {
-      x: pixelX - tileX * 256,
-      y: pixelY - tileY * 256
-    };
+  let route
+  try {
+    route = await fetchRoute(start, end)
+    console.log('[directions] got %d-char polyline, %d maneuvers', route.polyline.length, route.maneuvers.length)
+  } catch (e) {
+    console.log('[directions] route fetch failed:', e.message)
+    return bail(req, `Could not fetch directions (${e.message}).`)
   }
 
-  function generateSVGOverlay(coordinates, zoom, tileX, tileY) {
-    const pathData = coordinates.map((coord, index) => {
-      const point = latLonToTilePixel(coord[0], coord[1], zoom, tileX, tileY);
-      return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
-    }).join(' ');
+  // The polyline is too large (~7-8KB for an interstate) to fit in a JWE
+  // session cookie (~4KB limit). Store it in DDB via @begin/data and keep
+  // only a small id in the session.
+  const routeId = randomUUID()
+  try {
+    await data.set({
+      table: 'routes',
+      key: routeId,
+      polyline: route.polyline,
+      maneuvers: route.maneuvers,
+      startAddress: start.displayName,
+      endAddress: end.displayName,
+      ttl: Math.floor(Date.now() / 1000) + ROUTE_TTL_SECONDS
+    })
+  } catch (e) {
+    console.log('[directions] route persist failed:', e.message)
+    return bail(req, `Could not save route (${e.message}).`)
+  }
 
-    const svg = `
-        <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-            <image href="https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png" width="256" height="256" />
-            <path d="${pathData}" fill="none" stroke="blue" stroke-width="2" />
-        </svg>
-    `;
+  // Drop any prior route's id (and the old `directions` blob if present from
+  // an earlier version) so the session stays small.
+  const { routeId: oldRouteId, directions: oldDirections, ...cleanSession } = req.session
+  if (oldRouteId) {
+    data.destroy({ table: 'routes', key: oldRouteId }).catch(() => {})
+  }
 
-    return svg;
+  const zoom = req.session.zoom || 14
+  return {
+    session: {
+      ...cleanSession,
+      latitude: end.latitude,
+      longitude: end.longitude,
+      zoom,
+      routeId
+    },
+    location: `/zoom/${zoom}/lat/${end.latitude}/lon/${end.longitude}`
   }
 }

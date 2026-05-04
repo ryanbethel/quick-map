@@ -1,81 +1,96 @@
-export default function requestDirections({html,state}){
+// Plain server-rendered directions form. No client JS, no geolocation.
+// Server geocodes both addresses and asks Valhalla for the route.
+export default function requestDirections ({ html, state }) {
+  const directions = state.store?.directions
+  const start = directions?.startAddress || ''
+  const end = directions?.endAddress || ''
+
   return html`
 <style>
+  .directions-panel {
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    width: 280px;
+    max-width: calc(100dvw - 20px);
+    box-sizing: border-box;
+    color: #111111;
+  }
 
-button {
-  background-color: var(--primary-400);
-            padding: 5px 10px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-button svg {
-            display: inline-block;
-            vertical-align: middle;
-            width: 20px; /* Adjust as needed */
-            height: 20px; /* Adjust as needed */
-            margin-right: 8px; /* Space between the icon and the text */
-        }
+  .directions-panel form {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 6px;
+    align-items: center;
+  }
 
-        button span {
-            display: inline-block;
-            vertical-align: middle;
-        }
+  .directions-panel label {
+    font-size: 14px;
+    color: #444444;
+  }
 
+  .directions-panel input {
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    box-sizing: border-box;
+    background-color: #ffffff;
+    color: #111111;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    font: inherit;
+  }
+
+  .directions-panel input::placeholder {
+    color: #999999;
+  }
+
+  .directions-panel .actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .directions-panel button {
+    height: 32px;
+    padding: 0 12px;
+    background-color: #ffffff;
+    color: #111111;
+    border: 1px solid #cccccc;
+    border-radius: 9999px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .directions-panel button[type="submit"] {
+    background-color: #0066ff;
+    color: #ffffff;
+    border-color: #0066ff;
+  }
+
+  .directions-panel button:hover {
+    filter: brightness(0.95);
+  }
 </style>
 
+<div class="directions-panel">
+  <form action="/directions" method="POST" autocomplete="off">
+    <label for="dir-start">Start</label>
+    <input id="dir-start" name="start_address" type="text" placeholder="Starting address" value="${start}" required>
 
-  <form action="/directions" method="POST">
-    <input type="hidden" name="start_lat" value=${state.store?.latitude}>
-    <input type="hidden" name="start_lon" value=${state.store?.longitude}>
-    <input type="hidden" name="end_lat" value=${state.store?.latitude}> 
-    <input type="hidden" name="end_lon" value=${state.store?.longitude}>
-    <button class="radius-pill border-current border1 border-solid" type=submit><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#000000" viewBox="0 0 256 256"><path d="M200,168a32.06,32.06,0,0,0-31,24H72a32,32,0,0,1,0-64h96a40,40,0,0,0,0-80H72a8,8,0,0,0,0,16h96a24,24,0,0,1,0,48H72a48,48,0,0,0,0,96h97a32,32,0,1,0,31-40Zm0,48a16,16,0,1,1,16-16A16,16,0,0,1,200,216Z"></path></svg>
-    <span>Directions</span></button>
+    <label for="dir-end">End</label>
+    <input id="dir-end" name="end_address" type="text" placeholder="Destination address" value="${end}" required>
+
+    <div class="actions">
+      ${directions ? `<button type="submit" formaction="/directions/clear" formnovalidate>Clear</button>` : ''}
+      <button type="submit">Get directions</button>
+    </div>
   </form>
-<script type="module">
-class RequestDirections extends HTMLElement {
-  constructor(){
-    super();
-    this.handleDirections = this.handleDirections.bind(this);
-  }
-
-  connectedCallback(){
-    this.directionsForm = this.querySelector('form');
-    this.directionsForm.style.display='block';
-    this.directionsForm.addEventListener("submit", this.handleDirections);
-    this.endLat = this.querySelector('input[name="end_lat"]');
-    this.endLon = this.querySelector('input[name="end_lon"]');
-  }
-
-  async handleDirections(event) {
-    function getCurrentLocation() {
-      return new Promise((resolve, reject) => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              resolve({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
-              });
-            },
-            (error) => {
-              reject(error);
-            }
-          );
-        } else {
-          reject(new Error("Geolocation is not supported by this browser."));
-        }
-      });
-    }
-    event.preventDefault();
-    const geoLocation = await getCurrentLocation();
-    this.endLat.value = geoLocation.latitude;
-    this.endLon.value = geoLocation.longitude;
-    this.directionsForm.submit();
-  }
-}
-
-customElements.define('request-directions',RequestDirections)
-</script>
-  `
+</div>
+`
 }

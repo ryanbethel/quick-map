@@ -1,147 +1,130 @@
-export default function map({html,state}){
-  const { mapTileGrid, latitude, longitude, zoom, scale, offset, gridSize} = state.store
+export default function map ({ html, state }) {
+  const { mapTileGrid, zoom, scale, offset, gridSize, flash } = state.store
   return html`
 <style scope=global>
   body {
     margin: 0;
     width: 100dvw;
-    height: 100dvh; 
+    height: 100dvh;
     overflow: hidden;
   }
 </style>
 
 <style>
+  .mapGridContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    overflow: hidden;
+  }
 
-.mapGridContainer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100dvh; /* Viewport height */ 
-  overflow: hidden;
-}
+  .mapGrid {
+    display: grid;
+    grid-template-columns: repeat(${gridSize.cols}, 256px);
+    gap: 0;
+  }
 
-
-.mapGrid {
-  display: grid;
-  grid-template-columns: repeat(${gridSize.rows}, 256px);
-  gap: 0px;
-}
-
-.tile-container {
+  .tile-container {
     position: relative;
     width: 256px;
     height: 256px;
-}
+  }
 
-.tile-container img, .tile-container svg {
+  .tile-container img,
+  .tile-container svg {
     position: absolute;
     top: 0;
     left: 0;
-}
+  }
 
-img.map-tile {
-  width: 256px;
-  height: 256px;
-  display: block;
-}
+  img.map-tile {
+    width: 256px;
+    height: 256px;
+    display: block;
+  }
 
-.mapScale {
-  position: absolute;
-  min-height: 25px;
-  background-color: rgba(255, 255, 255, 0.7);
-  bottom: 10px;
-  right: 10px;
-}
+  /* Make sure the route SVG sits above the tile image but below the marker. */
+  .tile-container svg.route-overlay {
+    z-index: 5;
+    pointer-events: none;
+  }
 
-address-search {
-  position: absolute;
-  top:0;
-}
+  .mapScale {
+    position: absolute;
+    min-height: 25px;
+    background-color: rgba(255, 255, 255, 0.8);
+    bottom: 10px;
+    right: 10px;
+  }
 
-.marker {
-  color: var(--primary-600);
-  position: absolute;
-  z-index: 10; 
-  left: 50%;
-  top: 50%;
-  ${ offset && `transform: translate(${offset.x-256/2}px, ${offset.y-256/2}px); `}
-}
+  address-search {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 
-request-directions {
-  /* visibility: hidden; */
-  position: absolute;
-  bottom: 20px;
-  left: 10px;
-}
+  .marker {
+    color: #d62828;
+    position: absolute;
+    z-index: 10;
+    left: 50%;
+    top: 50%;
+    ${offset && `transform: translate(${offset.x - 256 / 2}px, ${offset.y - 256 / 2}px);`}
+  }
 
+  request-directions {
+    position: absolute;
+    bottom: 20px;
+    left: 10px;
+    z-index: 15;
+  }
 
-
-.zipControls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-
+  .flash {
+    position: absolute;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    max-width: 90dvw;
+    padding: 8px 14px;
+    background-color: #ffe9c2;
+    color: #5b3a00;
+    border: 1px solid #d4a64a;
+    border-radius: 6px;
+    font-size: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
 </style>
 
 <div class="mapGridContainer">
-  <div draggable="true" class="mapGrid">
-
-    ${mapTileGrid ? mapTileGrid.map(row => row.map(col=> `
+  <div class="mapGrid">
+    ${mapTileGrid ? mapTileGrid.map(row => row.map(col => `
       <div class="tile-container">
-        <img class="map-tile" src="${col}" loading="lazy" width="256" height="256">
-        <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 10 L246 246" fill="none" stroke="red" stroke-width="3" />
-        </svg>
+        <img class="map-tile" src="${col.tileUrl}" loading="lazy" width="256" height="256">
+        ${col.route || ''}
       </div>
-    `).join('\n')).join('\n') : ''}
+    `).join('')).join('') : ''}
 
     <div class="mapScale">
-      <svg width="60" height="25" >
-          <line x1="0" y1="10" x2="50" y2="10" stroke="black" stroke-width="2"/>
-          <text x="25" y="25" font-family="Arial" font-size="12" fill="black" text-anchor="middle">${(
-    scale * 50
-  ).toFixed(2)} km</text>
+      <svg width="60" height="25">
+        <line x1="0" y1="10" x2="50" y2="10" stroke="black" stroke-width="2"/>
+        <text x="25" y="25" font-family="Arial" font-size="12" fill="black" text-anchor="middle">${(scale * 50).toFixed(2)} km</text>
       </svg>
     </div>
   </div>
-<map-controls></map-controls>
 
-  <svg id="marker" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="marker text-primary bi bi-geo-alt-fill" viewBox="0 0 16 16">
+  <map-controls></map-controls>
+
+  <svg id="marker" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="marker" viewBox="0 0 16 16" aria-hidden="true">
     <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
   </svg>
 
-
   <request-directions></request-directions>
   <address-search></address-search>
+
+  ${flash ? `<div class="flash" role="status">${flash}</div>` : ''}
 </div>
-
-<div class="mapControls">
-  <form style="display:none;" id="geo-location-form" action="" method="GET">
-    <button type=submit class="btn btn-primary currentLocation">
-      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256"><path d="M229.33,98.21,53.41,33l-.16-.05A16,16,0,0,0,32.9,53.25a1,1,0,0,0,.05.16L98.21,229.33A15.77,15.77,0,0,0,113.28,240h.3a15.77,15.77,0,0,0,15-11.29l23.56-76.56,76.56-23.56a16,16,0,0,0,.62-30.38ZM224,113.3l-76.56,23.56a16,16,0,0,0-10.58,10.58L113.3,224h0l-.06-.17L48,48l175.82,65.22.16.06Z"></path></svg>
-    </button>
-  </form>
-  <form action="/zoom/${zoom}/zip" method="POST">
-    <div style="display:none;" class="zipControls">
-      <input class="form-control" name="zipcode" type="text" id="zipcode" placeholder="Enter Zipcode">
-      <button class="secondary" type="submit" id="getZip">Get Zip Code</button>
-    </div>
-  </form>
-</div>
-
-
-<script type="module">
-
- // const draggable = document.querySelector('.mapGrid[draggable="true"]');
- //  draggable.addEventListener('dragstart', function(event) {
- //    console.log("dragging")
- //    draggable.addEventListener('dragend', (event)=>{
- //      console.log(event)
- //      console.log(event.x,event.y)
- //    })
- //  })
-
-</script>
-`}
+`
+}

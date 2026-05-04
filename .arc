@@ -1,20 +1,24 @@
 @app
-begin-app
+quick-map
 
 @static
 prune true
 
 @plugins
 enhance/arc-plugin-enhance
-enhance/styles-cribsheet
+enhance/arc-plugin-styles
 
 @tables
 sessions
-  _idx *  
+  _idx *
+  ttl ttl
+
+zip
+  key *
+
+routes
+  key *
   ttl ttl
 
 @aws
-runtime nodejs18.x
-
-@begin
-appID S9MG8RGW
+runtime nodejs22.x
