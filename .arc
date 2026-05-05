@@ -20,5 +20,9 @@ routes
   key *
   ttl ttl
 
+collections
+  key *
+  ttl ttl
+
 @aws
 runtime nodejs22.x

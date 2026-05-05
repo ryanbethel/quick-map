@@ -27,6 +27,13 @@
       "indent": [
         "error",
         2
+      ],
+      "no-unused-vars": [
+        "error",
+        {
+          "ignoreRestSiblings": true,
+          "argsIgnorePattern": "^_"
+        }
       ]
     },
     "ignorePatterns": [],

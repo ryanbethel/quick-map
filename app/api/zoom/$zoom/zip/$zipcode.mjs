@@ -1,5 +1,5 @@
 import data from '@begin/data'
-import { buildTileGrid, decodePolyline } from '../../../../lib/tiles.mjs'
+import { buildTileGrid } from '../../../../lib/tiles.mjs'
 
 async function lookupZip (zipcode) {
   const cached = await data.get({ table: 'zip', key: zipcode }).catch(() => null)
@@ -44,7 +44,7 @@ export async function get (req) {
       console.log('[zip] route fetch failed:', e.message)
     }
   }
-  const polylineCoordinates = route?.polyline ? decodePolyline(route.polyline) : null
+  const polylineCoordinates = route?.coordinates || null
   const grid = buildTileGrid({
     latitude: coords.latitude,
     longitude: coords.longitude,

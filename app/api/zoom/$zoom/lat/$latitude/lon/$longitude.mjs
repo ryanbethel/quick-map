@@ -1,5 +1,5 @@
 import data from '@begin/data'
-import { buildTileGrid, decodePolyline } from '../../../../../../lib/tiles.mjs'
+import { buildTileGrid } from '../../../../../../lib/tiles.mjs'
 
 async function loadRoute (routeId) {
   if (!routeId) return null
@@ -22,7 +22,7 @@ export async function get (req) {
 
   // If a route is active, load it from DDB by id and overlay it on the grid.
   const route = await loadRoute(req.session?.routeId)
-  const polylineCoordinates = route?.polyline ? decodePolyline(route.polyline) : null
+  const polylineCoordinates = route?.coordinates || null
 
   const grid = buildTileGrid({ latitude, longitude, zoom, polylineCoordinates })
 

@@ -81,6 +81,28 @@ export default function map ({ html, state }) {
     z-index: 15;
   }
 
+  .demo-link {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 12px;
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #111111;
+    border: 1px solid #cccccc;
+    border-radius: 9999px;
+    font-size: 13px;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .demo-link:hover {
+    background-color: #ffffff;
+  }
+
   .flash {
     position: absolute;
     top: 64px;
@@ -123,6 +145,8 @@ export default function map ({ html, state }) {
 
   <request-directions></request-directions>
   <address-search></address-search>
+
+  <a href="/c/new" class="demo-link">Collections demo &rarr;</a>
 
   ${flash ? `<div class="flash" role="status">${flash}</div>` : ''}
 </div>
