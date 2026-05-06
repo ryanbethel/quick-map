@@ -19,7 +19,7 @@
 // Adding a new engine = write `async function fetchFromX(start, end)` with the
 // same return shape and add a case to the switch.
 
-import { decodePolyline } from './tiles.mjs'
+import { decodePolyline } from '../browser/tiles.mjs'
 
 const TIMEOUT_MS = 8000
 

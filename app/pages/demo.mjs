@@ -158,6 +158,25 @@ export default function Demo ({ html }) {
   </section>
 
   <section>
+    <h2>Client-side render mode <span class="pattern-tag">render="client"</span></h2>
+    <p>Same SSR baseline as the other embeds — but with the opt-in <code>render="client"</code> attribute, every gesture rebuilds the tile grid, polyline overlay, and pin positions in place via <code>buildTileGrid</code> in the browser. The URL is updated via <code>history.replaceState</code>, so reload, share, and back/forward all still work. Pop open DevTools' network tab and pan: only tile images are requested — no HTML round-trips. With JS off the page falls back to today's full-page-nav behavior.</p>
+    <div class="row cols-2">
+      <div>
+        <h3>Pins, client-rendered</h3>
+        <div class="iframe-host">
+          <iframe src="/demo/embed?render=client" title="Client-render pins"></iframe>
+        </div>
+      </div>
+      <div>
+        <h3>Route polyline, client-rendered</h3>
+        <div class="iframe-host">
+          <iframe src="/demo/route?render=client" title="Client-render route"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>Fixed-size container <span class="pattern-tag">sizing regression test</span></h2>
     <p>Same group-of-pins map at 320×200. Pins must stay inside the box (this is the off-screen-pin bug that <code>?fit=1</code> + <code>ResizeObserver</code> fix).</p>
     <div class="small-map">

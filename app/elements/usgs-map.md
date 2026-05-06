@@ -71,6 +71,7 @@ Place your own controls anywhere; they wire to the map by id:
 | `no-script`        | (boolean)        | —       | Suppress the inline `<script>`. Result: a static, no-JS map. |
 | `polyline`         | encoded string   | —       | A Google/Valhalla encoded polyline. Drawn as a route overlay on top of tiles. |
 | `polyline-precision` | int            | `6`     | Polyline precision: `5` for OSRM, `6` for Valhalla. |
+| `render`           | `client`         | —       | Opt-in. SSR is unchanged; when JS mounts, every gesture rebuilds the tile grid, polyline overlay, and `<map-pin>` positions in place via DOM (no full-page nav). The URL still updates via `history.replaceState` so reload / share / bookmark work. No-JS users get today's SSR-only behavior. See "Render modes" below. |
 
 For long polylines, pass already-decoded `[ [lat, lon], … ]` coordinates via `state.store.polylineCoordinates` (avoids URL-length limits and re-decoding).
 
@@ -103,6 +104,15 @@ These are the methods slotted/sibling controls (`<map-nav>`, `<address-search>`)
 `<usgs-map>` listens for `submit` events bubbling from any descendant form that has `data-nav-action` or `data-action` (the convention used by `<map-nav>` and the built-in chrome). When JS is on it intercepts these and calls the imperative API in-place. With JS off, the same forms navigate via the URL contract.
 
 It also listens for `geocode:result` events from `<address-search>` and calls `setView` automatically.
+
+## Render modes
+
+| mode | how gestures update the map |
+| --- | --- |
+| **default** | Every gesture (drag, pinch, dblclick, button, address search, resize) writes the new view into the URL and reloads the page. The server re-renders SSR HTML; the browser fetches new tile images. Reliable, fully PE-compatible, but each interaction triggers a full nav. |
+| **`render="client"`** | Same SSR for the first paint. Once JS mounts, every gesture is handled in-place: `buildTileGrid()` runs in the browser, the `.map-grid` children are reconciled (existing tiles whose URL still matches are kept, others are swapped), `<map-pin>` slotted children are repositioned via `latLonToGridPixel`, and the polyline overlay is redrawn per-tile. The URL is still updated via `history.replaceState({}, '', ...)` so reload, share, and back/forward all work. Tile images are still fetched directly from `basemap.nationalmap.gov` — no proxy. |
+
+The math is shared between both modes: `app/browser/tiles.mjs` is used both server-side (imported relative to the element file) and client-side (Enhance bundles it to `/_public/browser/tiles.mjs`, the inline script imports from there).
 
 ## URL contract (no-JS baseline)
 

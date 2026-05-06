@@ -24,9 +24,11 @@
 //                                       form submission land in the iframe.
 //                                       Works without JS.
 
-import { pixelToLatLon } from '../lib/tiles.mjs'
+import { PIXELS_PER_TILE, pixelToLatLon, crosshairPixel } from '../browser/tiles.mjs'
 
-const PIXELS_PER_TILE = 256
+// Where the inline browser script imports the shared math from. See the
+// matching note in `app/elements/usgs-map.mjs`.
+const TILES_LIB_URL = '/_public/browser/tiles.mjs'
 
 export default function mapNav ({ html, state }) {
   const attrs = state?.attrs || {}
@@ -162,50 +164,13 @@ ${script}
 function renderScript ({ forId, target }) {
   return /*html*/`
 <script type="module">
+import { PIXELS_PER_TILE, pixelToLatLon, crosshairPixel } from '${TILES_LIB_URL}'
+
 if (!customElements.get('map-nav')) {
   const FOR_ID = ${JSON.stringify(forId)}
   const TARGET = ${JSON.stringify(target)}
-  const PIXELS_PER_TILE = 256
   const PAN_PX = PIXELS_PER_TILE
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
-
-  // Local copy of pixelToLatLon — same math as the shared lib, inlined so the
-  // element doesn't need an import map.
-  function pixelToLatLon (px, py, zoom, centerLat, centerLon, gridCols, gridRows) {
-    const n = Math.pow(2, zoom)
-    const total = n * PIXELS_PER_TILE
-    const sinLat = Math.sin((centerLat * Math.PI) / 180)
-    const centerX = ((centerLon + 180) / 360) * total
-    const centerY = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
-    const centerCol = Math.floor((gridCols - 1) / 2)
-    const centerRow = Math.floor((gridRows - 1) / 2)
-    const offX = centerX - Math.floor(centerX / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    const offY = centerY - Math.floor(centerY / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    const centerGridX = centerCol * PIXELS_PER_TILE + offX
-    const centerGridY = centerRow * PIXELS_PER_TILE + offY
-    const tx = centerX + (px - centerGridX)
-    const ty = centerY + (py - centerGridY)
-    const lon = (tx / total) * 360 - 180
-    const lat = Math.atan(Math.sinh(Math.PI * (1 - (2 * ty) / total))) * 180 / Math.PI
-    return { lat, lon }
-  }
-
-  // Wrap-local pixel position of the (lat, lon) center inside the grid.
-  // Pan deltas are anchored here so a click pans by exactly PAN_PX.
-  function crosshairPixel (lat, lon, zoom, cols, rows) {
-    const total = Math.pow(2, zoom) * PIXELS_PER_TILE
-    const sinLat = Math.sin((lat * Math.PI) / 180)
-    const cx = ((lon + 180) / 360) * total
-    const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
-    const centerCol = Math.floor((cols - 1) / 2)
-    const centerRow = Math.floor((rows - 1) / 2)
-    const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    return {
-      x: centerCol * PIXELS_PER_TILE + offX,
-      y: centerRow * PIXELS_PER_TILE + offY
-    }
-  }
 
   function findTargetMap (el) {
     const forId = el.getAttribute('for') || FOR_ID
@@ -353,22 +318,4 @@ if (!customElements.get('map-nav')) {
 
 function escapeAttr (s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-}
-
-// Wrap-local pixel position of the (lat, lon) center inside an N x M grid.
-// Same math the server-rendered tile grid and <usgs-map> use to place the
-// crosshair; pan/zoom deltas should be measured from this point.
-function crosshairPixel (lat, lon, zoom, cols, rows) {
-  const total = Math.pow(2, zoom) * PIXELS_PER_TILE
-  const sinLat = Math.sin((lat * Math.PI) / 180)
-  const cx = ((lon + 180) / 360) * total
-  const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
-  const centerCol = Math.floor((cols - 1) / 2)
-  const centerRow = Math.floor((rows - 1) / 2)
-  const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
-  const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
-  return {
-    x: centerCol * PIXELS_PER_TILE + offX,
-    y: centerRow * PIXELS_PER_TILE + offY
-  }
 }

@@ -5,7 +5,7 @@
 // params (`?lat=&lon=&zoom=`) so the no-JS pan/zoom buttons work.
 
 import data from '@begin/data'
-import { bboxCenterAndZoom, fitTilesFor } from '../../lib/tiles.mjs'
+import { bboxCenterAndZoom, fitTilesFor } from '../../browser/tiles.mjs'
 
 const DEFAULT_GRID = 7
 

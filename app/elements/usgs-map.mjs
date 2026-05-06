@@ -46,9 +46,15 @@
 //   map:zoom  { zoom }
 //   map:select { lat, lon }        - dblclick / click-to-add
 
-import { buildTileGrid, decodePolyline, pixelToLatLon } from '../lib/tiles.mjs'
+import { buildTileGrid, decodePolyline, pixelToLatLon } from '../browser/tiles.mjs'
 
 const FULL_TILE = 256
+
+// Where the inline browser script imports the shared math from. Enhance's
+// arc-plugin-rollup bundles `app/browser/tiles.mjs` to `public/browser/tiles.mjs`,
+// which the static catchall serves at `/_public/browser/tiles.mjs`. In production
+// the path is fingerprinted automatically by the framework.
+const TILES_LIB_URL = '/_public/browser/tiles.mjs'
 
 export default function usgsMap ({ html, state }) {
   const store = state?.store || {}
@@ -73,6 +79,13 @@ export default function usgsMap ({ html, state }) {
   const showCrosshair = !minimal && !isHidden(attrs.crosshair ?? store.crosshair)
   const showScale = !minimal && !isHidden(attrs.scale ?? store.scale)
   const noScript = attrs['no-script'] != null
+  // Opt-in client-side rendering: SSR is unchanged, but once JS mounts the
+  // map rebuilds the tile grid, polyline overlay, and pin positions in place
+  // on every gesture instead of full-page navigating. Pure enhancement layer
+  // — no-JS users still get today's behavior.
+  const clientRender = (attrs.render ?? store.render) === 'client'
+  const polylineEncoded = typeof attrs.polyline === 'string' ? attrs.polyline : ''
+  const polylinePrecisionAttr = parseInt(attrs['polyline-precision'], 10)
   const widthAttr = sizeAttr(attrs.width)
   const heightAttr = sizeAttr(attrs.height)
   const baseUrlAttr = attrs['base-url'] || ''
@@ -491,8 +504,9 @@ export default function usgsMap ({ html, state }) {
        data-grid-rows="${gridRows}"
        data-mode="${mode}"
        data-chrome="${minimal ? 'minimal' : 'full'}"
+       data-render="${clientRender ? 'client' : 'server'}"
        data-base-url="${escapeAttr(baseUrl)}"
-       data-collection-id="${escapeAttr(collectionId)}"${(wrapShiftX || wrapShiftY) ? ` style="transform: translate(${wrapShiftX}px, ${wrapShiftY}px)"` : ''}>
+       data-collection-id="${escapeAttr(collectionId)}"${polylineEncoded ? ` data-polyline="${escapeAttr(polylineEncoded)}"` : ''}${Number.isFinite(polylinePrecisionAttr) ? ` data-polyline-precision="${polylinePrecisionAttr}"` : ''}${(wrapShiftX || wrapShiftY) ? ` style="transform: translate(${wrapShiftX}px, ${wrapShiftY}px)"` : ''}>
     <div class="map-grid">
       ${grid.mapTileGrid.map(row => row.map(cell => `
         <div class="tile-container">
@@ -501,6 +515,10 @@ export default function usgsMap ({ html, state }) {
         </div>
       `).join('')).join('')}
     </div>
+
+    ${(clientRender && Array.isArray(polylineCoordinates) && polylineCoordinates.length > 0)
+    ? `<script type="application/json" data-polyline-coords>${escapeJsonForScript(JSON.stringify(polylineCoordinates))}</script>`
+    : ''}
 
     <slot></slot>
   </div>
@@ -568,8 +586,18 @@ ${noScript ? '' : renderScript()}
 function renderScript () {
   return `
 <script type="module">
+import {
+  PIXELS_PER_TILE,
+  pixelToLatLon,
+  latLonToGlobalPixel as latLonToGlobal,
+  globalPixelToLatLon as globalToLatLon,
+  latLonToGridPixel,
+  buildTileGrid,
+  generateRouteSVG,
+  decodePolyline
+} from '${TILES_LIB_URL}'
+
 if (!customElements.get('usgs-map')) {
-  const PIXELS_PER_TILE = 256
   const DRAG_THRESHOLD = 5
   const SNAP_MS = 130
   const PINCH_ZOOM_IN = 1.5
@@ -578,41 +606,6 @@ if (!customElements.get('usgs-map')) {
   const MIN_GRID_EDITOR = 5
   const MIN_GRID_PREVIEW = 3
   const MAX_GRID = 13
-
-  function pixelToLatLon (px, py, zoom, centerLat, centerLon, gridCols, gridRows) {
-    const n = Math.pow(2, zoom)
-    const total = n * PIXELS_PER_TILE
-    const sinLat = Math.sin((centerLat * Math.PI) / 180)
-    const centerX = ((centerLon + 180) / 360) * total
-    const centerY = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
-    const centerCol = Math.floor((gridCols - 1) / 2)
-    const centerRow = Math.floor((gridRows - 1) / 2)
-    const offX = centerX - Math.floor(centerX / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    const offY = centerY - Math.floor(centerY / PIXELS_PER_TILE) * PIXELS_PER_TILE
-    const centerGridX = centerCol * PIXELS_PER_TILE + offX
-    const centerGridY = centerRow * PIXELS_PER_TILE + offY
-    const tx = centerX + (px - centerGridX)
-    const ty = centerY + (py - centerGridY)
-    const lon = (tx / total) * 360 - 180
-    const lat = Math.atan(Math.sinh(Math.PI * (1 - (2 * ty) / total))) * 180 / Math.PI
-    return { lat, lon }
-  }
-
-  function latLonToGlobal (lat, lon, zoom) {
-    const total = Math.pow(2, zoom) * PIXELS_PER_TILE
-    const sinLat = Math.sin((lat * Math.PI) / 180)
-    return {
-      x: ((lon + 180) / 360) * total,
-      y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
-    }
-  }
-
-  function globalToLatLon (x, y, zoom) {
-    const total = Math.pow(2, zoom) * PIXELS_PER_TILE
-    const lon = (x / total) * 360 - 180
-    const lat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / total))) * 180 / Math.PI
-    return { lat, lon }
-  }
 
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 
@@ -645,6 +638,14 @@ if (!customElements.get('usgs-map')) {
       this.minimal = d.chrome === 'minimal'
       this.collectionId = d.collectionId || ''
       this.baseUrl = d.baseUrl || window.location.pathname
+      this.clientRender = d.render === 'client'
+      // Polyline coords for the route overlay. Shared across rerenders so
+      // pan/zoom keeps the same route on screen. Two SSR delivery paths:
+      // (a) data-polyline encoded string on the wrap, with optional
+      // data-polyline-precision. (b) An inline application/json script tag
+      // with data-polyline-coords carrying the already-decoded coords (used
+      // when state.store.polylineCoordinates is set, e.g. /demo/route).
+      this.polylineCoordinates = this.extractPolyline()
       this.stageX = (this.gridCols * PIXELS_PER_TILE) / 2
       this.stageY = (this.gridRows * PIXELS_PER_TILE) / 2
       // Crosshair sits at the stage's geometric center. The SSR translates
@@ -735,6 +736,25 @@ if (!customElements.get('usgs-map')) {
       this.wrap.style.transform = scale != null
         ? 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')'
         : 'translate(' + tx + 'px, ' + ty + 'px)'
+    }
+
+    // Read polyline coords once at mount. Returns null if no overlay.
+    extractPolyline () {
+      const json = this.querySelector('script[type="application/json"][data-polyline-coords]')
+      if (json) {
+        try {
+          const parsed = JSON.parse(json.textContent)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        } catch (_e) { /* fall through to data-polyline */ }
+      }
+      const encoded = this.wrap?.dataset?.polyline
+      if (typeof encoded === 'string' && encoded.length > 0) {
+        const precision = parseInt(this.wrap.dataset.polylinePrecision, 10)
+        try {
+          return decodePolyline(encoded, Number.isFinite(precision) ? precision : 6)
+        } catch (_e) { /* ignore */ }
+      }
+      return null
     }
 
     // Wrap-local position of the crosshair. The SSR shifts the wrap so the
@@ -1113,6 +1133,176 @@ if (!customElements.get('usgs-map')) {
       this.navigate(lat, lon, this.zoom + 1)
     }
 
+    // ─── Client-side rerender ──────────────────────────────────────────
+    // Used only when render="client". Rebuilds the tile-grid DOM, pin
+    // positions, and (if any) polyline overlay in place — no full-page
+    // navigation. URL is still updated via history.replaceState so reload,
+    // share, and back/forward keep working. Falls through to navigate()
+    // for server-rendered mode (the default).
+    rerender ({ lat, lon, zoom, cols, rows } = {}) {
+      if (!this.wrap) return
+      const newLat = Number.isFinite(lat) ? lat : this.centerLat
+      const newLon = Number.isFinite(lon) ? lon : this.centerLon
+      const newZoom = Number.isFinite(zoom)
+        ? clamp(parseInt(zoom, 10), 0, 16)
+        : this.zoom
+      const newCols = Number.isFinite(cols) ? cols : this.gridCols
+      const newRows = Number.isFinite(rows) ? rows : this.gridRows
+
+      const grid = buildTileGrid({
+        latitude: newLat,
+        longitude: newLon,
+        zoom: newZoom,
+        rows: newRows,
+        cols: newCols,
+        polylineCoordinates: this.polylineCoordinates || null
+      })
+
+      // If grid dims changed, override the SSR-baked CSS dimensions via
+      // inline style. (.map-grid-wrap and .map-grid sizes were rendered
+      // into the scoped <style> block at SSR time.)
+      const dimsChanged = newCols !== this.gridCols || newRows !== this.gridRows
+      if (dimsChanged) {
+        this.wrap.style.width = (newCols * PIXELS_PER_TILE) + 'px'
+        this.wrap.style.height = (newRows * PIXELS_PER_TILE) + 'px'
+      }
+
+      // Reconcile .tile-container children. Re-using existing <img> nodes
+      // when their src already matches keeps the browser tile cache warm
+      // across pans within the same zoom level.
+      const gridEl = this.querySelector('.map-grid')
+      if (gridEl) {
+        if (dimsChanged) {
+          gridEl.style.gridTemplateColumns = 'repeat(' + newCols + ', ' + PIXELS_PER_TILE + 'px)'
+          gridEl.style.gridTemplateRows = 'repeat(' + newRows + ', ' + PIXELS_PER_TILE + 'px)'
+        }
+        const totalCells = newRows * newCols
+        const containers = Array.from(gridEl.querySelectorAll(':scope > .tile-container'))
+        while (containers.length < totalCells) {
+          const c = document.createElement('div')
+          c.className = 'tile-container'
+          const img = document.createElement('img')
+          img.className = 'map-tile'
+          img.width = PIXELS_PER_TILE
+          img.height = PIXELS_PER_TILE
+          img.alt = ''
+          img.loading = 'lazy'
+          c.appendChild(img)
+          gridEl.appendChild(c)
+          containers.push(c)
+        }
+        while (containers.length > totalCells) {
+          containers.pop().remove()
+        }
+        let k = 0
+        for (let i = 0; i < newRows; i++) {
+          for (let j = 0; j < newCols; j++) {
+            const cell = grid.mapTileGrid[i][j]
+            const container = containers[k++]
+            const img = container.querySelector('img.map-tile')
+            if (img && img.getAttribute('src') !== cell.tileUrl) {
+              img.setAttribute('src', cell.tileUrl)
+            }
+            const oldSvg = container.querySelector('svg.route-overlay')
+            if (cell.route) {
+              if (oldSvg) {
+                const tmp = document.createElement('div')
+                tmp.innerHTML = cell.route
+                const newSvg = tmp.firstElementChild
+                if (newSvg) container.replaceChild(newSvg, oldSvg)
+              } else {
+                container.insertAdjacentHTML('beforeend', cell.route)
+              }
+            } else if (oldSvg) {
+              oldSvg.remove()
+            }
+          }
+        }
+      }
+
+      // Reposition <map-pin> children. They live as light-DOM siblings of
+      // .map-grid inside .map-grid-wrap; their .map-pin-anchor div has
+      // inline style.left/top in wrap-local pixels.
+      const totalW = newCols * PIXELS_PER_TILE
+      const totalH = newRows * PIXELS_PER_TILE
+      const margin = 32
+      this.querySelectorAll('map-pin').forEach(pin => {
+        const plat = parseFloat(pin.getAttribute('lat'))
+        const plon = parseFloat(pin.getAttribute('lon'))
+        if (!Number.isFinite(plat) || !Number.isFinite(plon)) return
+        const anchor = pin.querySelector('.map-pin-anchor')
+        if (!anchor) return
+        const { x, y } = latLonToGridPixel(plat, plon, newZoom, newLat, newLon, newCols, newRows)
+        if (x < -margin || y < -margin || x > totalW + margin || y > totalH + margin) {
+          anchor.style.display = 'none'
+        } else {
+          anchor.style.display = ''
+          anchor.style.left = x.toFixed(1) + 'px'
+          anchor.style.top = y.toFixed(1) + 'px'
+        }
+      })
+
+      // Update wrap dataset + instance fields. computeCrosshair returns the
+      // wrap-local position of the lat/lon center (= the screen position of
+      // the crosshair after the wrap shift is applied).
+      this.wrap.dataset.centerLat = String(newLat)
+      this.wrap.dataset.centerLon = String(newLon)
+      this.wrap.dataset.zoom = String(newZoom)
+      this.wrap.dataset.gridCols = String(newCols)
+      this.wrap.dataset.gridRows = String(newRows)
+      this.centerLat = newLat
+      this.centerLon = newLon
+      this.zoom = newZoom
+      this.gridCols = newCols
+      this.gridRows = newRows
+      this.stageX = (newCols * PIXELS_PER_TILE) / 2
+      this.stageY = (newRows * PIXELS_PER_TILE) / 2
+      const cross = this.computeCrosshair(newLat, newLon, newZoom, newCols, newRows)
+      this.crossX = cross.x
+      this.crossY = cross.y
+      this.wrapShiftX = Math.round(this.stageX - this.crossX)
+      this.wrapShiftY = Math.round(this.stageY - this.crossY)
+
+      this.dx = 0
+      this.dy = 0
+      this.animating = false
+      this.wrap.classList.remove('snapping', 'dragging', 'pinching')
+      this.wrap.style.transformOrigin = ''
+      this.applyTransform(0, 0)
+
+      // <map-scale> registers its own Custom Element class and observes
+      // lat/zoom/width/units, so this attr update triggers an in-place
+      // re-render of the bar — no full page nav needed.
+      const scale = this.querySelector('map-scale')
+      if (scale) {
+        scale.setAttribute('lat', String(newLat))
+        scale.setAttribute('zoom', String(newZoom))
+      }
+
+      this.dispatchEvent(new CustomEvent('map:move', {
+        bubbles: true,
+        detail: { lat: newLat, lon: newLon, zoom: newZoom }
+      }))
+
+      if (this.ownsUrl()) {
+        const rect = this.getBoundingClientRect()
+        const w = Math.round(rect.width) || this.lastSize.w || window.innerWidth
+        const h = Math.round(rect.height) || this.lastSize.h || window.innerHeight
+        const url = new URL(window.location.href)
+        url.searchParams.set('lat', newLat.toFixed(6))
+        url.searchParams.set('lon', newLon.toFixed(6))
+        url.searchParams.set('zoom', String(newZoom))
+        url.searchParams.set('cols', String(newCols))
+        url.searchParams.set('rows', String(newRows))
+        url.searchParams.set('w', String(w))
+        url.searchParams.set('h', String(h))
+        url.searchParams.delete('fit')
+        try {
+          history.replaceState({}, '', url.pathname + url.search)
+        } catch (_e) { /* SecurityError on cross-origin iframe; ignore */ }
+      }
+    }
+
     // ─── Navigation ────────────────────────────────────────────────────
     // Owns its URL? Only navigate when the map's base-url matches the
     // current pathname. Otherwise the map is embedded on someone else's
@@ -1132,6 +1322,13 @@ if (!customElements.get('usgs-map')) {
     // Build the new URL from the current location so any extra query params
     // (e.g. ?preview=1) are preserved automatically.
     navigate (lat, lon, zoom, cols, rows) {
+      // In client-render mode rerender() handles map:move dispatch, DOM
+      // update, and history.replaceState all in one. Bail before the
+      // server-roundtrip path so we don't double-fire events or assign
+      // a new location.
+      if (this.clientRender) {
+        return this.rerender({ lat, lon, zoom, cols, rows })
+      }
       this.dispatchEvent(new CustomEvent('map:move', { bubbles: true, detail: { lat, lon, zoom } }))
       if (!this.ownsUrl()) {
         // Page nav suppressed (we don't own the URL). Clear any pending
@@ -1180,6 +1377,13 @@ if (!customElements.get('usgs-map')) {
     // carried stale lat/lon/zoom forward and the server's "user pinned a
     // view" branch defeated bbox-fit.
     refit ({ cols, rows, w, h } = {}) {
+      // Client-render mode: just rebuild the grid at the new dimensions
+      // around the existing center. The server-side bbox-fit branch is
+      // skipped — pins/route stay roughly in view since center/zoom don't
+      // change, and the new grid covers the new container size.
+      if (this.clientRender) {
+        return this.rerender({ cols, rows })
+      }
       if (!this.ownsUrl()) return
       const url = new URL(window.location.href)
       url.searchParams.delete('lat')
@@ -1308,6 +1512,12 @@ function escapeText (s) {
 
 function escapeAttr (s) {
   return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+}
+
+// Embed a JSON string inside <script type="application/json">. The HTML
+// parser only stops at "</script", so we just neutralize that sequence.
+function escapeJsonForScript (s) {
+  return String(s).replace(/<\/script/gi, '<\\/script')
 }
 
 function navFields (lat, lon, zoom, cols, rows, w, h) {

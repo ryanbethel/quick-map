@@ -2,7 +2,7 @@
 // kitchen-sink page. Hardcodes a small demo pin set; accepts ?lat/lon/zoom
 // from URL so external <map-nav> / <address-search> controls can drive it.
 
-import { bboxCenterAndZoom, fitTilesFor } from '../../lib/tiles.mjs'
+import { bboxCenterAndZoom, fitTilesFor } from '../../browser/tiles.mjs'
 
 const DEMO_PINS = [
   { lat: 43.6614, lon: -70.2553, name: 'Old Port' },
@@ -25,6 +25,7 @@ export async function get (req) {
   const centerLat = (!forceFit && Number.isFinite(qLat)) ? qLat : fit.centerLat
   const centerLon = (!forceFit && Number.isFinite(qLon)) ? qLon : fit.centerLon
   const zoom = (!forceFit && Number.isFinite(qZoom)) ? Math.max(0, Math.min(16, qZoom)) : fit.zoom
+  const render = req.query?.render === 'client' ? 'client' : 'server'
 
   return {
     json: {
@@ -37,6 +38,7 @@ export async function get (req) {
       viewH: Number.isFinite(viewH) ? viewH : null,
       pins: DEMO_PINS,
       fit,
+      render,
       // Demo embed: render without chrome by default so iframes are pure
       // tiles + pins. Pages that want the built-in chrome can load /c/new
       // or /c/$id, which keep their default chrome.

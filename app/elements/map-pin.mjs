@@ -8,7 +8,7 @@
 // installs (popover-close coordination). Theme via CSS variables —
 // see map-pin.md.
 
-import { latLonToGridPixel } from '../lib/tiles.mjs'
+import { latLonToGridPixel } from '../browser/tiles.mjs'
 
 export default function mapPin ({ html, state }) {
   const attrs = state?.attrs || {}

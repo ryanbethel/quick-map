@@ -1,5 +1,5 @@
 import data from '@begin/data'
-import { buildTileGrid } from '../../../../../../lib/tiles.mjs'
+import { buildTileGrid } from '../../../../../../browser/tiles.mjs'
 
 async function loadRoute (routeId) {
   if (!routeId) return null

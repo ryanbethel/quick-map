@@ -81,7 +81,7 @@ export function latLonToTilePixel (lat, lon, zoom, tileX, tileY) {
   }
 }
 
-function latLonToGlobalPixel (lat, lon, zoom) {
+export function latLonToGlobalPixel (lat, lon, zoom) {
   const n = Math.pow(2, zoom)
   const x = ((lon + 180) / 360) * n * PIXELS_PER_TILE
   const sinLat = Math.sin((lat * Math.PI) / 180)
@@ -89,12 +89,33 @@ function latLonToGlobalPixel (lat, lon, zoom) {
   return { x, y }
 }
 
-function globalPixelToLatLon (x, y, zoom) {
+export function globalPixelToLatLon (x, y, zoom) {
   const n = Math.pow(2, zoom)
   const total = n * PIXELS_PER_TILE
   const lon = (x / total) * 360 - 180
   const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / total))) * 180) / Math.PI
   return { lat, lon }
+}
+
+// Wrap-local pixel position of the (lat, lon) center inside an N x M tile
+// grid produced by `buildTileGrid`. Equivalent to
+// `latLonToGridPixel(lat, lon, zoom, lat, lon, cols, rows)`. Used as the
+// pan/zoom anchor — the lat/lon center is up to half a tile off the wrap's
+// geometric center, so anchoring on the wrap center would over-pan by that
+// amount.
+export function crosshairPixel (lat, lon, zoom, cols, rows) {
+  const total = Math.pow(2, zoom) * PIXELS_PER_TILE
+  const sinLat = Math.sin((lat * Math.PI) / 180)
+  const cx = ((lon + 180) / 360) * total
+  const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
+  const centerCol = Math.floor((cols - 1) / 2)
+  const centerRow = Math.floor((rows - 1) / 2)
+  const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
+  const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
+  return {
+    x: centerCol * PIXELS_PER_TILE + offX,
+    y: centerRow * PIXELS_PER_TILE + offY
+  }
 }
 
 // Convert (lat, lon) to pixel coords inside the rows x cols tile grid produced

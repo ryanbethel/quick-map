@@ -6,7 +6,7 @@
 // → straight-line, so this works whether or not external services are up.
 
 import { fetchRoute } from '../../lib/routing.mjs'
-import { bboxCenterAndZoom, fitTilesFor } from '../../lib/tiles.mjs'
+import { bboxCenterAndZoom, fitTilesFor } from '../../browser/tiles.mjs'
 
 const START = { latitude: 43.6614, longitude: -70.2553, displayName: 'Portland, ME' }
 const END = { latitude: 44.3106, longitude: -69.7795, displayName: 'Augusta, ME' }
@@ -47,6 +47,7 @@ export async function get (req) {
   const centerLat = (!forceFit && Number.isFinite(qLat)) ? qLat : fit.centerLat
   const centerLon = (!forceFit && Number.isFinite(qLon)) ? qLon : fit.centerLon
   const zoom = (!forceFit && Number.isFinite(qZoom)) ? Math.max(0, Math.min(16, qZoom)) : fit.zoom
+  const render = req.query?.render === 'client' ? 'client' : 'server'
 
   return {
     json: {
@@ -62,6 +63,7 @@ export async function get (req) {
       start: { lat: START.latitude, lon: START.longitude, name: START.displayName },
       end: { lat: END.latitude, lon: END.longitude, name: END.displayName },
       fit,
+      render,
       controls: 'none',
       info: 'none'
     }

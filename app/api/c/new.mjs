@@ -4,7 +4,7 @@
 // fall back to session.lastCenter, then a hard default. Grid size (cols/rows)
 // is set by the client-side enhancement on first load to match the viewport.
 
-import { bboxCenterAndZoom, fitTilesFor } from '../../lib/tiles.mjs'
+import { bboxCenterAndZoom, fitTilesFor } from '../../browser/tiles.mjs'
 
 const DEFAULT = { lat: 43.68, lon: -70.25, zoom: 10 }
 
