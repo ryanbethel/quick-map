@@ -1,7 +1,7 @@
 {
-  "name": "quick-map",
+  "name": "hf-maps",
   "version": "0.0.1",
-  "description": "Vanilla, progressively enhanced web component for USGS topo maps, built with Enhance + Architect.",
+  "description": "HTML First, progressively enhanced web component for USGS topo maps, built with Enhance + Architect.",
   "type": "module",
   "repository": {
     "type": "git",
