@@ -626,7 +626,7 @@ if (!customElements.get('usgs-map')) {
 
   class UsgsMap extends HTMLElement {
     connectedCallback () {
-      // Per-instance opt-out. `no-script` already suppresses this instance's
+      // Per-instance opt-out. The no-script attribute already suppresses this instance's
       // inline <script> at SSR time, but in multi-map pages another active
       // instance's script gets hoisted and defines the class — which would
       // otherwise upgrade *every* <usgs-map> on the page (including ones
