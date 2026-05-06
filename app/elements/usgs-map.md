@@ -1,76 +1,119 @@
 # `<usgs-map>`
 
-Server-rendered USGS topo map. Drop it in a page template; pass map state via `state.store` from the matching API handler. Works with no JS; client-side enhancement adds drag, pinch, dbl-click, dialog-based pin add, and viewport-aware grid sizing.
+Server-rendered USGS topo map. Drop it in any container — page, iframe, or fixed-size div. Works without JS; the inline script enhances it with drag, pinch, dblclick, dialog-based pin add, and a `ResizeObserver` that re-fits the tile grid when the container changes size.
 
-## Page template
+## Quick start
 
-```js
-// app/pages/c/$id.mjs
-export default function CollectionPage ({ html, state }) {
-  const { pins = [] } = state.store
-  return html`
-<usgs-map>
-  ${pins.map((p, i) => `
-    <map-pin lat="${p.lat}" lon="${p.lon}" name="${p.name || ''}" note="${p.note || ''}" index="${i}"></map-pin>
-  `).join('')}
+```html
+<usgs-map lat="43.68" lon="-70.25" zoom="11"></usgs-map>
+```
+
+In a fixed container:
+
+```html
+<div style="width: 480px; height: 320px;">
+  <usgs-map lat="43.68" lon="-70.25" zoom="11"></usgs-map>
+</div>
+```
+
+The element fills its parent (`height: 100%`). For a full-page render, the document needs an unbroken height chain: `html, body { height: 100% }` (or use the `height` attr — see below).
+
+## Composition
+
+```html
+<usgs-map lat="43.68" lon="-70.25" zoom="11">
+  <map-pin lat="43.68" lon="-70.25" name="Portland"></map-pin>
+  <map-pin lat="44.31" lon="-69.78" name="Augusta"></map-pin>
 </usgs-map>
-`
-}
 ```
 
-## API handler — what to put in `state.store`
+Each chrome piece is independently toggleable. Hide everything except tiles + pins:
+
+```html
+<usgs-map controls="none" info="none" crosshair="false" scale="false" lat="43.68" lon="-70.25" zoom="11">
+  <map-pin lat="43.68" lon="-70.25"></map-pin>
+</usgs-map>
+```
+
+For a fully static, no-gesture preview (e.g. a thumbnail) use `chrome="minimal"` (or the `<map-thumbnail>` element):
+
+```html
+<usgs-map chrome="minimal" lat="43.68" lon="-70.25" zoom="11"></usgs-map>
+```
+
+Place your own controls anywhere; they wire to the map by id:
+
+```html
+<usgs-map id="my-map" controls="none" info="none" lat="43.68" lon="-70.25" zoom="11">
+  <map-pin lat="43.68" lon="-70.25"></map-pin>
+</usgs-map>
+<map-nav for="my-map"></map-nav>
+<map-scale zoom="11" lat="43.68"></map-scale>
+```
+
+## Attributes
+
+| attr               | type             | default | notes |
+| ------------------ | ---------------- | ------- | ----- |
+| `lat`              | number           | —       | Initial center latitude. Falls back to `state.store.centerLat`. |
+| `lon`              | number           | —       | Initial center longitude. |
+| `zoom`             | int              | 10      | Web-Mercator zoom (0–16). |
+| `cols`             | int 3–13         | 7       | Tile-grid cols. |
+| `rows`             | int 3–13         | 7       | Tile-grid rows. |
+| `width`            | css size         | `100%`  | `400`, `400px`, `80%`, `100dvw`, etc. |
+| `height`           | css size         | `100%`  | Same. |
+| `controls`         | `full` / `none`  | `full`  | Show/hide the built-in nav buttons. **Gestures (drag/pinch/dblclick) still work** when `none`. |
+| `info`             | `full` / `none`  | `full`  | Show/hide the bottom-left info / creator panel. |
+| `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
+| `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
+| `chrome`           | `minimal`        | —       | Hides ALL chrome AND disables gestures. The "static preview" mode used by `<map-thumbnail>`. |
+| `base-url`         | URL              | (auto)  | Where the no-JS forms post. Defaults to `/c/{id}` (view) or `/c/new` (create). |
+| `no-script`        | (boolean)        | —       | Suppress the inline `<script>`. Result: a static, no-JS map. |
+| `polyline`         | encoded string   | —       | A Google/Valhalla encoded polyline. Drawn as a route overlay on top of tiles. |
+| `polyline-precision` | int            | `6`     | Polyline precision: `5` for OSRM, `6` for Valhalla. |
+
+For long polylines, pass already-decoded `[ [lat, lon], … ]` coordinates via `state.store.polylineCoordinates` (avoids URL-length limits and re-decoding).
+
+Hide-values for the boolean-style attrs: any of `none`, `false`, `0`, `hide`, `off` (case-insensitive). Anything else (including the attribute being absent) means "show".
+
+For full collection-editor use, the API handler additionally publishes `state.store` keys like `collectionMode`, `collectionId`, `collectionTitle`, `draftPinCount`, `fit`, `flash`, `viewW`, `viewH`. See [app/api/c/$id.mjs](../api/c/$id.mjs) and [app/api/c/new.mjs](../api/c/new.mjs).
+
+## Imperative API (when JS is on)
 
 ```js
-// app/api/c/$id.mjs
-import { bboxCenterAndZoom } from '../../lib/tiles.mjs'
-
-export async function get (req) {
-  const pins = /* ...load from DB... */
-  const cols = parseInt(req.query?.cols, 10) || 7
-  const rows = parseInt(req.query?.rows, 10) || 7
-  const fit = bboxCenterAndZoom(pins, cols, rows)
-  const lat = parseFloat(req.query?.lat) || fit.centerLat
-  const lon = parseFloat(req.query?.lon) || fit.centerLon
-  const zoom = parseInt(req.query?.zoom, 10) || fit.zoom
-
-  return {
-    json: {
-      centerLat: lat, centerLon: lon, zoom,
-      gridCols: cols, gridRows: rows,
-      collectionMode: 'view',           // or 'create'
-      collectionId: req.params.id,      // used to build URLs in view mode
-      collectionTitle: 'Whatever',
-      pins,
-      fit                               // optional, drives the "Fit pins" button
-    }
-  }
-}
+const map = document.getElementById('my-map')
+map.zoomIn()
+map.zoomOut()
+map.panBy(dx, dy)            // pixels; one tile = 256 px
+map.setView({ lat, lon, zoom })
+map.fitPins()                // refits the bbox using the container size
 ```
 
-## Store keys
+These are the methods slotted/sibling controls (`<map-nav>`, `<address-search>`) call. You can call them directly too.
 
-| key                           | type          | notes                                               |
-| ----------------------------- | ------------- | --------------------------------------------------- |
-| `centerLat`, `centerLon`      | number        | required                                            |
-| `zoom`                        | int 0–16      | required                                            |
-| `gridCols`, `gridRows`        | int 5–13      | default 7×7; client may navigate to a fitted size   |
-| `collectionMode`              | `view`/`create` | default `view`                                    |
-| `collectionId`                | string        | used by `view` mode for URLs                        |
-| `collectionTitle`             | string        | viewer panel header                                 |
-| `draftPinCount`               | int           | create mode only, shown in header                   |
-| `fit`                         | `{centerLat, centerLon, zoom}` | optional; renders "Fit pins" link  |
-| `flash`                       | string        | optional banner                                     |
+## Events
 
-`<map-pin>` reads its own `lat`/`lon`/`name`/`note`/`index` attrs, and the same `state.store` for centering math.
+| event         | detail               |
+| ------------- | -------------------- |
+| `map:move`    | `{ lat, lon, zoom }` |
+| `map:select`  | `{ lat, lon }`        |
+
+## State sharing
+
+`<usgs-map>` listens for `submit` events bubbling from any descendant form that has `data-nav-action` or `data-action` (the convention used by `<map-nav>` and the built-in chrome). When JS is on it intercepts these and calls the imperative API in-place. With JS off, the same forms navigate via the URL contract.
+
+It also listens for `geocode:result` events from `<address-search>` and calls `setView` automatically.
 
 ## URL contract (no-JS baseline)
 
-All pan/zoom controls submit a GET form with hidden inputs `lat`, `lon`, `zoom`, `cols`, `rows`. Your handler must accept them.
+Every gesture / form submission lands at `?lat=…&lon=…&zoom=…&cols=…&rows=…&w=…&h=…`. The handler must accept these. Additionally, when the client triggers a refit due to a container size change, it sends `?fit=1` *without* lat/lon/zoom — the server should respond with bbox-fit center+zoom recomputed against `w`/`h`.
 
 - `view` mode posts to `/c/{collectionId}`.
 - `create` mode posts to `/c/new`.
 
-The client-side enhancement uses the same query string when navigating after drag/pinch/dbl-click.
+### URL-ownership guard
+
+Navigation (gestures, `ResizeObserver` refit, imperative `setView` / `zoomIn` / `panBy` / `fitPins`) only fires when `base-url` matches `window.location.pathname`. If the map is embedded on a host page that owns a different URL — say a kitchen-sink page hosting `<usgs-map base-url="/demo/embed">` — the client will *not* call `window.location.assign()` (which would otherwise reload the host and, with `ResizeObserver`, infinite-loop). For interactive embeds, put the map in an `<iframe src="/its-own-url">` so it owns the URL inside the frame. For static previews, use `chrome="minimal"` or `<map-thumbnail>`. `map:move` events still fire so consumers can react however they like.
 
 ## Endpoints `<usgs-map>` and `<map-pin>` POST to (create mode)
 
@@ -81,11 +124,7 @@ The client-side enhancement uses the same query string when navigating after dra
 | `POST /c/new/clear`  | panel                  | (none)                     |
 | `POST /c`            | save panel             | `title`                    |
 
-`/c/new/add` redirects using `req.session.lastCenter` so click-to-add doesn't yank the viewport to the new pin.
-
-## Embedding in an iframe (form-targets-frame pattern)
-
-Because every gesture lands at a `/c/$id?lat=…&lon=…&zoom=…&cols=…&rows=…` URL and the map renders as a standalone page, you can host it in an `<iframe>` and drive it from the parent page with `target="map"` — no JS, no `postMessage`, no parent reload.
+## Embedding in an iframe
 
 ```html
 <a href="/c/abc?lat=43.68&lon=-70.25&zoom=11" target="map">Portland</a>
@@ -98,7 +137,24 @@ Because every gesture lands at a `/c/$id?lat=…&lon=…&zoom=…&cols=…&rows=
 <iframe name="map" src="/c/abc"></iframe>
 ```
 
-Working example: `app/pages/embed/$id.mjs` (route: `/embed/:id`).
+Working example: [app/pages/embed/$id.mjs](../pages/embed/$id.mjs) (route: `/embed/:id`).
+
+## Theming
+
+| variable                           | default                       |
+| ---------------------------------- | ----------------------------- |
+| `--usgs-map-bg`                    | `#e8e8e8`                     |
+| `--usgs-map-fg`                    | `#111111`                     |
+| `--usgs-map-min-height`            | `0`                           |
+| `--usgs-map-crosshair`             | `rgba(0,0,0,0.55)`            |
+| `--usgs-map-panel-bg/border/shadow`| `rgba(255,255,255,0.95)` etc. |
+| `--usgs-map-button-bg/fg/border`   | `#ffffff` / `#111111` / `#cccccc` |
+| `--usgs-map-button-hover-bg`       | `#f2f2f2`                     |
+| `--usgs-map-primary-bg/fg`         | `#0066ff` / `#ffffff`         |
+| `--usgs-map-flash-bg/fg/border`    | `#ffe9c2` / `#5b3a00` / `#d4a64a` |
+| `--usgs-map-muted`                 | `#444444`                     |
+
+Slotted children (`<map-pin>`, `<map-nav>`, `<map-scale>`) have their own variables — see their docs.
 
 ## Client behavior summary
 
@@ -107,4 +163,4 @@ Working example: `app/pages/embed/$id.mjs` (route: `/embed/:id`).
 - Mouse `dblclick` (view mode only) → zoom +1 centered on click.
 - Click on map (create mode only) → opens `<dialog>` with lat/lon pre-filled.
 - One `<map-pin>` `<details>` open at a time; Esc and outside-click close.
-- `connectedCallback` and resize re-navigate to a viewport-fit `cols`/`rows` (paused while dragging, pinching, dialog open, or input focused).
+- `ResizeObserver` watches the host element. First non-zero observation re-navigates to `?fit=1&w&h&cols&rows` if the SSR grid doesn't match the container; subsequent resizes do the same, debounced (paused while dragging, pinching, dialog open, or input focused).

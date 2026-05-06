@@ -1,6 +1,6 @@
 // Routing adapter. Pick a backend at runtime via env vars:
 //
-//   ROUTING_ENGINE  one of: "valhalla" (default), "osrm", "straight"
+//   ROUTING_ENGINE  one of: "osrm" (default), "valhalla", "straight"
 //   ROUTING_URL     base URL override; sensible public default per engine
 //
 // Every adapter returns the same shape so the rest of the app stays oblivious
@@ -11,8 +11,13 @@
 //     maneuvers:   string[]              // human-readable turn-by-turn
 //   }
 //
+// fetchRoute tries the requested engine first, then falls back to alternates
+// on failure, ending in straight-line so it ALWAYS returns something. Public
+// Valhalla and OSRM instances have outages from time to time; the fallback
+// keeps the app working.
+//
 // Adding a new engine = write `async function fetchFromX(start, end)` with the
-// same return shape and add a case to `fetchRoute`.
+// same return shape and add a case to the switch.
 
 import { decodePolyline } from './tiles.mjs'
 
@@ -24,12 +29,30 @@ const DEFAULT_URL = {
 }
 
 export async function fetchRoute (start, end) {
-  const engine = (process.env.ROUTING_ENGINE || 'valhalla').toLowerCase()
-  switch (engine) {
-  case 'valhalla': return fetchFromValhalla(start, end)
-  case 'osrm':     return fetchFromOSRM(start, end)
-  case 'straight': return straightLine(start, end)
-  default: throw new Error(`Unknown ROUTING_ENGINE: ${engine}`)
+  const primary = (process.env.ROUTING_ENGINE || 'osrm').toLowerCase()
+  const order = engineOrder(primary)
+  let lastErr
+  for (const engine of order) {
+    try {
+      switch (engine) {
+      case 'valhalla': return await fetchFromValhalla(start, end)
+      case 'osrm':     return await fetchFromOSRM(start, end)
+      case 'straight': return straightLine(start, end)
+      }
+    } catch (e) {
+      lastErr = e
+      console.log(`[route] ${engine} failed: ${e.message}`)
+    }
+  }
+  throw lastErr || new Error('No routing engine available')
+}
+
+function engineOrder (primary) {
+  switch (primary) {
+  case 'valhalla': return ['valhalla', 'osrm', 'straight']
+  case 'osrm':     return ['osrm', 'valhalla', 'straight']
+  case 'straight': return ['straight']
+  default:         return ['osrm', 'valhalla', 'straight']
   }
 }
 

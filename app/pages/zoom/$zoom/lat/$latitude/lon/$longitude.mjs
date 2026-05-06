@@ -63,6 +63,9 @@ export default function map ({ html, state }) {
     position: absolute;
     top: 0;
     left: 0;
+    width: 100dvw;
+    padding: 8px;
+    box-sizing: border-box;
   }
 
   .marker {
@@ -74,10 +77,18 @@ export default function map ({ html, state }) {
     ${offset && `transform: translate(${offset.x - 256 / 2}px, ${offset.y - 256 / 2}px);`}
   }
 
-  request-directions {
+  route-search {
     position: absolute;
     bottom: 20px;
     left: 10px;
+    z-index: 15;
+    width: 280px;
+  }
+
+  map-nav {
+    position: absolute;
+    bottom: 40px;
+    right: 10px;
     z-index: 15;
   }
 
@@ -137,14 +148,14 @@ export default function map ({ html, state }) {
     </div>
   </div>
 
-  <map-controls></map-controls>
+  <map-nav lat="${state.store.latitude}" lon="${state.store.longitude}" zoom="${zoom}" base-url="/zoom/${zoom}/lat/${state.store.latitude}/lon/${state.store.longitude}"></map-nav>
 
   <svg id="marker" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="marker" viewBox="0 0 16 16" aria-hidden="true">
     <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
   </svg>
 
-  <request-directions></request-directions>
-  <address-search></address-search>
+  <route-search></route-search>
+  <address-search action="/address" name="search_address"></address-search>
 
   <a href="/c/new" class="demo-link">Collections demo &rarr;</a>
 

@@ -52,13 +52,21 @@ export async function get (req) {
     }
   }
 
+  // ?fit=1 forces bbox-fit even when lat/lon/zoom are present in the URL —
+  // the client uses this signal on container-resize re-renders so the fit
+  // is recomputed against the new w/h instead of carrying stale state.
+  const forceFit = req.query?.fit === '1' || req.query?.fit === 'true'
+
   const last = req.session?.lastCenter || {}
-  const centerLat = Number.isFinite(qLat) ? qLat
-    : (Number.isFinite(parseFloat(last.lat)) ? parseFloat(last.lat) : DEFAULT.lat)
-  const centerLon = Number.isFinite(qLon) ? qLon
-    : (Number.isFinite(parseFloat(last.lon)) ? parseFloat(last.lon) : DEFAULT.lon)
-  const zoom = Number.isFinite(qZoom) ? Math.max(0, Math.min(16, qZoom))
-    : (Number.isFinite(parseInt(last.zoom, 10)) ? parseInt(last.zoom, 10) : DEFAULT.zoom)
+  const centerLat = (!forceFit && Number.isFinite(qLat)) ? qLat
+    : (forceFit && fit ? fit.centerLat
+      : (Number.isFinite(parseFloat(last.lat)) ? parseFloat(last.lat) : DEFAULT.lat))
+  const centerLon = (!forceFit && Number.isFinite(qLon)) ? qLon
+    : (forceFit && fit ? fit.centerLon
+      : (Number.isFinite(parseFloat(last.lon)) ? parseFloat(last.lon) : DEFAULT.lon))
+  const zoom = (!forceFit && Number.isFinite(qZoom)) ? Math.max(0, Math.min(16, qZoom))
+    : (forceFit && fit ? fit.zoom
+      : (Number.isFinite(parseInt(last.zoom, 10)) ? parseInt(last.zoom, 10) : DEFAULT.zoom))
 
   const { collectionFlash: flash, ...cleanSession } = req.session || {}
 

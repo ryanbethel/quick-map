@@ -32,13 +32,17 @@ export async function get (req) {
   const fitX = fitTilesFor(viewW, gridCols)
   const fitY = fitTilesFor(viewH, gridRows)
   const fit = bboxCenterAndZoom(row.pins, fitX, fitY)
+  // ?fit=1 forces bbox-fit even when lat/lon/zoom are present in the URL.
+  // The client uses this for container-resize-driven re-renders so stale
+  // (and possibly wrongly-sized) lat/lon/zoom don't defeat the fit math.
+  const forceFit = req.query?.fit === '1' || req.query?.fit === 'true'
   const qLat = parseFloat(req.query?.lat)
   const qLon = parseFloat(req.query?.lon)
   const qZoom = parseInt(req.query?.zoom, 10)
 
-  const centerLat = Number.isFinite(qLat) ? qLat : fit.centerLat
-  const centerLon = Number.isFinite(qLon) ? qLon : fit.centerLon
-  const zoom = Number.isFinite(qZoom) ? Math.max(0, Math.min(16, qZoom)) : fit.zoom
+  const centerLat = (!forceFit && Number.isFinite(qLat)) ? qLat : fit.centerLat
+  const centerLon = (!forceFit && Number.isFinite(qLon)) ? qLon : fit.centerLon
+  const zoom = (!forceFit && Number.isFinite(qZoom)) ? Math.max(0, Math.min(16, qZoom)) : fit.zoom
 
   return {
     json: {
