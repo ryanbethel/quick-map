@@ -42,8 +42,12 @@ export default function mapNav ({ html, state }) {
   const showLocate = attrs.locate !== 'false'
 
   const haveState = Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(zoom)
-  const stageX = (cols * PIXELS_PER_TILE) / 2
-  const stageY = (rows * PIXELS_PER_TILE) / 2
+  // Crosshair = the wrap-local pixel where the lat/lon center sits. Pan
+  // deltas are measured from this point, not from the wrap's geometric
+  // center — those differ by up to half a tile (the lat/lon's offset
+  // inside its tile) and using stageX/Y instead would over-pan by exactly
+  // that amount on the first click for any given center.
+  const cross = haveState ? crosshairPixel(lat, lon, zoom, cols, rows) : null
 
   const navFields = (action) => {
     if (!haveState) return ''
@@ -56,7 +60,7 @@ export default function mapNav ({ html, state }) {
       if (action === 'pan-s') dy = PIXELS_PER_TILE
       if (action === 'pan-w') dx = -PIXELS_PER_TILE
       if (action === 'pan-e') dx = PIXELS_PER_TILE
-      const p = pixelToLatLon(stageX + dx, stageY + dy, zoom, lat, lon, cols, rows)
+      const p = pixelToLatLon(cross.x + dx, cross.y + dy, zoom, lat, lon, cols, rows)
       next = { lat: p.lat, lon: p.lon, zoom }
     }
     return `
@@ -156,7 +160,7 @@ ${script}
 }
 
 function renderScript ({ forId, target }) {
-  return `
+  return /*html*/`
 <script type="module">
 if (!customElements.get('map-nav')) {
   const FOR_ID = ${JSON.stringify(forId)}
@@ -184,6 +188,23 @@ if (!customElements.get('map-nav')) {
     const lon = (tx / total) * 360 - 180
     const lat = Math.atan(Math.sinh(Math.PI * (1 - (2 * ty) / total))) * 180 / Math.PI
     return { lat, lon }
+  }
+
+  // Wrap-local pixel position of the (lat, lon) center inside the grid.
+  // Pan deltas are anchored here so a click pans by exactly PAN_PX.
+  function crosshairPixel (lat, lon, zoom, cols, rows) {
+    const total = Math.pow(2, zoom) * PIXELS_PER_TILE
+    const sinLat = Math.sin((lat * Math.PI) / 180)
+    const cx = ((lon + 180) / 360) * total
+    const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
+    const centerCol = Math.floor((cols - 1) / 2)
+    const centerRow = Math.floor((rows - 1) / 2)
+    const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
+    const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
+    return {
+      x: centerCol * PIXELS_PER_TILE + offX,
+      y: centerRow * PIXELS_PER_TILE + offY
+    }
   }
 
   function findTargetMap (el) {
@@ -240,9 +261,8 @@ if (!customElements.get('map-nav')) {
       if (action === 'pan-s') dy = PAN_PX
       if (action === 'pan-w') dx = -PAN_PX
       if (action === 'pan-e') dx = PAN_PX
-      const stageX = (this.cols * PIXELS_PER_TILE) / 2
-      const stageY = (this.rows * PIXELS_PER_TILE) / 2
-      const p = pixelToLatLon(stageX + dx, stageY + dy, this.zoom, this.lat, this.lon, this.cols, this.rows)
+      const cross = crosshairPixel(this.lat, this.lon, this.zoom, this.cols, this.rows)
+      const p = pixelToLatLon(cross.x + dx, cross.y + dy, this.zoom, this.lat, this.lon, this.cols, this.rows)
       return { lat: p.lat, lon: p.lon, zoom: this.zoom }
     }
 
@@ -333,4 +353,22 @@ if (!customElements.get('map-nav')) {
 
 function escapeAttr (s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+}
+
+// Wrap-local pixel position of the (lat, lon) center inside an N x M grid.
+// Same math the server-rendered tile grid and <usgs-map> use to place the
+// crosshair; pan/zoom deltas should be measured from this point.
+function crosshairPixel (lat, lon, zoom, cols, rows) {
+  const total = Math.pow(2, zoom) * PIXELS_PER_TILE
+  const sinLat = Math.sin((lat * Math.PI) / 180)
+  const cx = ((lon + 180) / 360) * total
+  const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
+  const centerCol = Math.floor((cols - 1) / 2)
+  const centerRow = Math.floor((rows - 1) / 2)
+  const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
+  const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
+  return {
+    x: centerCol * PIXELS_PER_TILE + offX,
+    y: centerRow * PIXELS_PER_TILE + offY
+  }
 }

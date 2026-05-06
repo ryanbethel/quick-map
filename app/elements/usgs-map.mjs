@@ -115,23 +115,31 @@ export default function usgsMap ({ html, state }) {
     : (collectionId ? `/c/${encodeURIComponent(collectionId)}` : ''))
 
   // Stage center = geometric center of the wrap = where the crosshair sits in
-  // screen space. Using this (rather than the lat/lon center, which can be
-  // anywhere within the center tile) makes pan distances consistent.
+  // screen space.
   const stageCenterX = (gridCols * 256) / 2
   const stageCenterY = (gridRows * 256) / 2
 
-  // The lat/lon center sits at wrap-local (centerCol*256 + offset.x, ...) which
-  // can be up to 128 px off the wrap's geometric center. In preview mode (no
-  // pointer interactions) we offset the wrap so the lat/lon center lands at
-  // the visual viewport center — pins stay centered in the iframe instead of
-  // drifting to one side.
+  // The lat/lon center's natural position inside the wrap is
+  // (centerCol*256 + offset.x, centerRow*256 + offset.y), which can be up to
+  // 128 px off the wrap's geometric center depending on where the center
+  // happens to fall inside its tile. Translate the wrap so that point lands
+  // exactly at the stage center (= the crosshair). Doing this on every
+  // render means a free-pan drag can compute the post-release lat/lon from
+  // the *full* drag distance (not snapped to the nearest tile boundary) and
+  // the next SSR will pick a matching shift — no visual jump.
   const centerCol = Math.floor((gridCols - 1) / 2)
   const centerRow = Math.floor((gridRows - 1) / 2)
-  const wrapShiftX = minimal ? Math.round(stageCenterX - (centerCol * 256 + grid.offset.x)) : 0
-  const wrapShiftY = minimal ? Math.round(stageCenterY - (centerRow * 256 + grid.offset.y)) : 0
+  const crossX = centerCol * 256 + grid.offset.x
+  const crossY = centerRow * 256 + grid.offset.y
+  const wrapShiftX = Math.round(stageCenterX - crossX)
+  const wrapShiftY = Math.round(stageCenterY - crossY)
 
+  // Pan / nudge buttons shift the view by `(dx, dy)` screen pixels relative
+  // to the crosshair, so use the crosshair's wrap-local position as the
+  // anchor. Using the wrap's geometric center instead would introduce up to
+  // a 128 px error per click when the center sits off-tile-grid.
   const nudgeFields = (dx, dy) => {
-    const { lat, lon } = pixelToLatLon(stageCenterX + dx, stageCenterY + dy, zoom, centerLat, centerLon, gridCols, gridRows)
+    const { lat, lon } = pixelToLatLon(crossX + dx, crossY + dy, zoom, centerLat, centerLon, gridCols, gridRows)
     return navFields(lat.toFixed(6), lon.toFixed(6), zoom, gridCols, gridRows, viewW, viewH)
   }
 
@@ -606,7 +614,6 @@ if (!customElements.get('usgs-map')) {
     return { lat, lon }
   }
 
-  const snap = v => Math.round(v / PIXELS_PER_TILE) * PIXELS_PER_TILE
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
 
   // Optimal grid for an arbitrary container size. We measure the host
@@ -640,6 +647,21 @@ if (!customElements.get('usgs-map')) {
       this.baseUrl = d.baseUrl || window.location.pathname
       this.stageX = (this.gridCols * PIXELS_PER_TILE) / 2
       this.stageY = (this.gridRows * PIXELS_PER_TILE) / 2
+      // Crosshair sits at the stage's geometric center. The SSR translates
+      // the wrap so the lat/lon center lands exactly there, which means in
+      // *wrap-local* coordinates the crosshair is at (crossX, crossY) — the
+      // lat/lon center's natural position inside the wrap. All gesture →
+      // lat/lon math is anchored here, so a free-pan drag can be applied
+      // verbatim (no tile-snap) and still match the next SSR exactly.
+      const cross = this.computeCrosshair(this.centerLat, this.centerLon, this.zoom, this.gridCols, this.gridRows)
+      this.crossX = cross.x
+      this.crossY = cross.y
+      // Static wrap shift, mirrored from the SSR. Every gesture transform
+      // adds (dx, dy) on top of this so the SSR-applied baseline is never
+      // dropped — that was causing "click jumps the map by ~half a tile"
+      // when onMove blew away the inline transform.
+      this.wrapShiftX = Math.round(this.stageX - this.crossX)
+      this.wrapShiftY = Math.round(this.stageY - this.crossY)
 
       this.pointers = new Map()
       this.dragging = false
@@ -702,12 +724,47 @@ if (!customElements.get('usgs-map')) {
       if (this.resizeTimer) clearTimeout(this.resizeTimer)
     }
 
+    // Apply a gesture transform on top of the static wrap shift. The shift
+    // is the SSR-rendered translate(...) that puts the lat/lon center at
+    // the crosshair; we must keep it in every transform we set, otherwise
+    // the wrap visibly jumps by (wrapShiftX, wrapShiftY) at the start of
+    // each gesture and again at release.
+    applyTransform (dx, dy, scale) {
+      const tx = this.wrapShiftX + (dx || 0)
+      const ty = this.wrapShiftY + (dy || 0)
+      this.wrap.style.transform = scale != null
+        ? 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')'
+        : 'translate(' + tx + 'px, ' + ty + 'px)'
+    }
+
+    // Wrap-local position of the crosshair. The SSR shifts the wrap so the
+    // lat/lon center coincides with the stage's geometric center, so the
+    // crosshair lives at the lat/lon's natural position inside the wrap.
+    computeCrosshair (lat, lon, zoom, cols, rows) {
+      const total = Math.pow(2, zoom) * PIXELS_PER_TILE
+      const sinLat = Math.sin((lat * Math.PI) / 180)
+      const cx = ((lon + 180) / 360) * total
+      const cy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * total
+      const centerCol = Math.floor((cols - 1) / 2)
+      const centerRow = Math.floor((rows - 1) / 2)
+      const offX = cx - Math.floor(cx / PIXELS_PER_TILE) * PIXELS_PER_TILE
+      const offY = cy - Math.floor(cy / PIXELS_PER_TILE) * PIXELS_PER_TILE
+      return {
+        x: centerCol * PIXELS_PER_TILE + offX,
+        y: centerRow * PIXELS_PER_TILE + offY
+      }
+    }
+
     // ─── Imperative API ────────────────────────────────────────────────
     zoomIn () { this.setView({ zoom: clamp(this.zoom + 1, 0, 16) }) }
     zoomOut () { this.setView({ zoom: clamp(this.zoom - 1, 0, 16) }) }
+    // panBy(dx, dy): shift the *view* by (dx, dy) screen pixels. So
+    // panBy(0, -256) pans north (the world's northern content slides into
+    // the crosshair). Anchored on the crosshair, not the wrap's geometric
+    // center.
     panBy (dx, dy) {
       const next = pixelToLatLon(
-        this.stageX - dx, this.stageY - dy,
+        this.crossX + dx, this.crossY + dy,
         this.zoom, this.centerLat, this.centerLon,
         this.gridCols, this.gridRows
       )
@@ -858,7 +915,7 @@ if (!customElements.get('usgs-map')) {
       if (this.dragging && e.pointerId === this.dragPointerId) {
         this.dx = e.clientX - this.dragStartX
         this.dy = e.clientY - this.dragStartY
-        this.wrap.style.transform = 'translate(' + this.dx + 'px, ' + this.dy + 'px)'
+        this.applyTransform(this.dx, this.dy)
       }
     }
 
@@ -914,37 +971,36 @@ if (!customElements.get('usgs-map')) {
 
       const moved = Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD
       if (moved) {
-        const sx = snap(dx)
-        const sy = snap(dy)
+        // Drag freely — no snap-to-tile. The new center is whatever world
+        // point is now under the crosshair. Because the SSR translates the
+        // wrap so the lat/lon center always sits at the crosshair, the
+        // re-rendered page picks a matching shift and the view stays put
+        // across the navigation. Leaving the inline transform in place
+        // keeps the old wrap pinned to the user's release position until
+        // the new HTML commits.
+        const next = pixelToLatLon(
+          this.crossX - dx, this.crossY - dy,
+          this.zoom, this.centerLat, this.centerLon,
+          this.gridCols, this.gridRows
+        )
         this.animating = true
-        this.wrap.classList.add('snapping')
-        this.wrap.style.transform = 'translate(' + sx + 'px, ' + sy + 'px)'
-        setTimeout(() => {
-          if (sx === 0 && sy === 0) {
-            this.wrap.classList.remove('snapping')
-            this.wrap.style.transform = ''
-            this.animating = false
-            return
-          }
-          const next = pixelToLatLon(
-            this.stageX - sx, this.stageY - sy,
-            this.zoom, this.centerLat, this.centerLon,
-            this.gridCols, this.gridRows
-          )
-          this.navigate(next.lat, next.lon, this.zoom)
-        }, SNAP_MS)
+        this.navigate(next.lat, next.lon, this.zoom)
         return
       }
 
       if (wasClick && this.mode === 'create') {
         const rect = this.wrap.getBoundingClientRect()
-        const px = clientX - rect.left
-        const py = clientY - rect.top
+        // rect.left already includes the wrap shift (it's part of the
+        // transform), so clientX - rect.left gives a screen-relative
+        // coordinate. To translate that into the *unshifted* wrap-local
+        // frame that pixelToLatLon expects, subtract the shift back out.
+        const px = clientX - rect.left + this.wrapShiftX
+        const py = clientY - rect.top + this.wrapShiftY
         const { lat, lon } = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
         this.dispatchEvent(new CustomEvent('map:select', { bubbles: true, detail: { lat, lon } }))
         this.openAddPinDialog(lat, lon)
       }
-      this.wrap.style.transform = ''
+      this.applyTransform(0, 0)
     }
 
     cancelDrag () {
@@ -955,7 +1011,7 @@ if (!customElements.get('usgs-map')) {
       this.dy = 0
       this.wrap.classList.remove('dragging')
       this.wrap.classList.remove('snapping')
-      this.wrap.style.transform = ''
+      this.applyTransform(0, 0)
     }
 
     // ─── Pinch ─────────────────────────────────────────────────────────
@@ -991,7 +1047,7 @@ if (!customElements.get('usgs-map')) {
       const tx = midX - this.pinchStart.midX
       const ty = midY - this.pinchStart.midY
       this.pinchScale = s
-      this.wrap.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + s + ')'
+      this.applyTransform(tx, ty, s)
     }
 
     endPinch () {
@@ -1002,7 +1058,7 @@ if (!customElements.get('usgs-map')) {
 
       if (zoomDelta === 0) {
         this.wrap.classList.add('snapping')
-        this.wrap.style.transform = ''
+        this.applyTransform(0, 0)
         setTimeout(() => {
           this.wrap.classList.remove('snapping')
           this.wrap.classList.remove('pinching')
@@ -1015,12 +1071,17 @@ if (!customElements.get('usgs-map')) {
       }
 
       const newZoom = clamp(this.zoom + zoomDelta, 0, 16)
-      const px = this.pinchStart.localX
-      const py = this.pinchStart.localY
+      // pinchStart.rect is the post-transform rect — it already has the
+      // wrap shift baked in. pixelToLatLon expects coords in the wrap's
+      // pre-transform box, and the on-screen position of the lat/lon
+      // center is rect.left + crossX (not rect.left + stageX). Fold both
+      // corrections in here.
+      const px = this.pinchStart.localX + this.wrapShiftX
+      const py = this.pinchStart.localY + this.wrapShiftY
       const L = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
       const Lglobal = latLonToGlobal(L.lat, L.lon, newZoom)
-      const screenCenterX = this.pinchStart.rectLeft + this.stageX
-      const screenCenterY = this.pinchStart.rectTop + this.stageY
+      const screenCenterX = this.pinchStart.rectLeft + this.crossX
+      const screenCenterY = this.pinchStart.rectTop + this.crossY
       const offX = this.pinchStart.midX - screenCenterX
       const offY = this.pinchStart.midY - screenCenterY
       let Cx = Lglobal.x - offX
@@ -1037,7 +1098,7 @@ if (!customElements.get('usgs-map')) {
       this.pinchScale = 1
       this.wrap.classList.remove('pinching')
       this.wrap.classList.remove('snapping')
-      this.wrap.style.transform = ''
+      this.applyTransform(0, 0)
       this.wrap.style.transformOrigin = ''
     }
 
@@ -1046,8 +1107,8 @@ if (!customElements.get('usgs-map')) {
       if (e.target.closest('map-pin, button, a, input, summary, details, form, dialog')) return
       if (this.zoom >= 16) return
       const rect = this.wrap.getBoundingClientRect()
-      const px = e.clientX - rect.left
-      const py = e.clientY - rect.top
+      const px = e.clientX - rect.left + this.wrapShiftX
+      const py = e.clientY - rect.top + this.wrapShiftY
       const { lat, lon } = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
       this.navigate(lat, lon, this.zoom + 1)
     }
@@ -1099,10 +1160,12 @@ if (!customElements.get('usgs-map')) {
 
     // Reset any inline transform / animation classes left by a gesture.
     // Used both internally and as a no-op fallback when navigate() bails.
+    // Reset goes back to the static wrap shift, NOT to no-transform —
+    // otherwise the wrap snaps off-crosshair by (wrapShiftX, wrapShiftY).
     resetWrapTransform () {
       if (!this.wrap) return
       this.wrap.classList.remove('snapping', 'dragging', 'pinching')
-      this.wrap.style.transform = ''
+      this.applyTransform(0, 0)
       this.wrap.style.transformOrigin = ''
       this.dx = 0
       this.dy = 0
