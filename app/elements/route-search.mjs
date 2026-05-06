@@ -33,7 +33,7 @@ export default function routeSearch ({ html, state }) {
 
   const formAction = noScript ? noScriptAction : action
 
-  const form = `
+  const form = /*html*/`
 <form class="route-search-form"${target ? ` target="${escapeAttr(target)}"` : ''}
       action="${escapeAttr(formAction)}" method="${method}" autocomplete="off">
   <label class="route-search-row">

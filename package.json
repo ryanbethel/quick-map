@@ -2,6 +2,22 @@
   "name": "quick-map",
   "version": "0.0.1",
   "description": "Vanilla, progressively enhanced web component for USGS topo maps, built with Enhance + Architect.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanbethel/quick-map.git"
+  },
+  "files": [
+    "app/browser/**/*.mjs",
+    "app/elements/**/*.mjs",
+    "app/elements/**/*.md",
+    "AGENTS.md",
+    "readme.md"
+  ],
+  "exports": {
+    "./browser/*": "./app/browser/*",
+    "./elements/*": "./app/elements/*"
+  },
   "scripts": {
     "start": "arc sandbox",
     "deploy": "arc deploy",

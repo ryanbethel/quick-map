@@ -584,7 +584,7 @@ ${noScript ? '' : renderScript()}
 }
 
 function renderScript () {
-  return `
+  return /*html*/`
 <script type="module">
 import {
   PIXELS_PER_TILE,

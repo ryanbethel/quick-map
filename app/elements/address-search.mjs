@@ -24,7 +24,7 @@ export default function addressSearch ({ html, state }) {
   const noScript = attrs['no-script'] != null
   const zoom = parseInt(attrs.zoom, 10) || 14
 
-  const form = `
+  const form = /*html*/`
 <form class="address-search-form"${target ? ` target="${escapeAttr(target)}"` : ''}
       action="${escapeAttr(action)}" method="${method}">
   <input class="address-search-input" name="${escapeAttr(inputName)}" type="text"

@@ -98,7 +98,7 @@ ${noScript ? '' : renderScript()}
 }
 
 function renderScript () {
-  return `
+  return /*html*/`
 <script type="module">
 import { computeScale, renderInnerHTML, hostMaxWidthStyle } from '${MAP_SCALE_LIB_URL}'
 
