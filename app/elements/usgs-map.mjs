@@ -626,6 +626,15 @@ if (!customElements.get('usgs-map')) {
 
   class UsgsMap extends HTMLElement {
     connectedCallback () {
+      // Per-instance opt-out. `no-script` already suppresses this instance's
+      // inline <script> at SSR time, but in multi-map pages another active
+      // instance's script gets hoisted and defines the class — which would
+      // otherwise upgrade *every* <usgs-map> on the page (including ones
+      // that opted out, e.g. <map-thumbnail>'s inner map). Without this
+      // bail, those upgraded thumbnails attach a ResizeObserver, see the
+      // SSR grid (cols*256 / rows*256) doesn't fit their small container,
+      // and call refit() → window.location.assign(...) → infinite reload.
+      if (this.hasAttribute('no-script')) return
       this.wrap = this.querySelector('.map-grid-wrap')
       if (!this.wrap) return
       const d = this.wrap.dataset

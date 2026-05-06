@@ -68,7 +68,7 @@ Place your own controls anywhere; they wire to the map by id:
 | `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
 | `chrome`           | `minimal`        | —       | Hides ALL chrome AND disables gestures. The "static preview" mode used by `<map-thumbnail>`. |
 | `base-url`         | URL              | (auto)  | Where the no-JS forms post. Defaults to `/c/{id}` (view) or `/c/new` (create). |
-| `no-script`        | (boolean)        | —       | Suppress the inline `<script>`. Result: a static, no-JS map. |
+| `no-script`        | (boolean)        | —       | Per-instance opt-out: suppress the inline `<script>` at SSR time AND bail out of `connectedCallback` at runtime, so this instance attaches no listeners, no `ResizeObserver`, and never navigates. Required when mixing static maps (`<map-thumbnail>`, etc.) with active maps on the same page — without it, an SSR-deduped class definition from the active map will upgrade the static map and the resize-driven `refit()` will infinite-loop via `window.location.assign()`. |
 | `polyline`         | encoded string   | —       | A Google/Valhalla encoded polyline. Drawn as a route overlay on top of tiles. |
 | `polyline-precision` | int            | `6`     | Polyline precision: `5` for OSRM, `6` for Valhalla. |
 | `render`           | `client`         | —       | Opt-in. SSR is unchanged; when JS mounts, every gesture rebuilds the tile grid, polyline overlay, and `<map-pin>` positions in place via DOM (no full-page nav). The URL still updates via `history.replaceState` so reload / share / bookmark work. No-JS users get today's SSR-only behavior. See "Render modes" below. |
