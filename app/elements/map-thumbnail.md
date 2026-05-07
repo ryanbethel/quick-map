@@ -26,15 +26,19 @@ Static, fixed-size preview of a USGS topo map. Pure composition over `<usgs-map>
 | `rows`   | `3`     | Tile-grid rows.                                  |
 | `width`  | `160px` | Pixel size, or any CSS length.                   |
 | `height` | `100px` | Pixel size, or any CSS length.                   |
+| `pin`    | (off)   | When set (any non-`false`/`0` value), overlays a center pin marker. Decorative only — `pointer-events: none` so it never blocks clicks on the host element. Use slotted `<map-pin>` children for projected, multi-point pins. |
 
 Children (e.g. `<map-pin>`) are forwarded into the inner `<usgs-map>`'s slot.
 
 ## Theming
 
-| variable                 | default     |
-| ------------------------ | ----------- |
-| `--map-thumbnail-border` | `#cccccc`   |
-| `--map-thumbnail-radius` | `6px`       |
+| variable                       | default                                |
+| ------------------------------ | -------------------------------------- |
+| `--map-thumbnail-border`       | `#cccccc`                              |
+| `--map-thumbnail-radius`       | `6px`                                  |
+| `--map-thumbnail-pin-color`    | `#d62828`                              |
+| `--map-thumbnail-pin-size`     | `24px`                                 |
+| `--map-thumbnail-pin-shadow`   | `drop-shadow(0 1px 2px rgba(0,0,0,.5))` |
 
 The inner `<usgs-map>`'s own variables (`--usgs-map-bg`, etc.) work too.
 

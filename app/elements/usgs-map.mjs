@@ -1,7 +1,10 @@
 // <usgs-map> — server-rendered, host-sized USGS topo map.
 //
-// Reads its config from `state.store` so any page hosting it can hydrate it,
-// or from attrs as a fallback so it can be dropped in without an API handler:
+// Reads its config from element attrs first, falling back to `state.store`
+// so any page hosting it can hydrate it from a handler. Attrs-first matters
+// when the page has more than one <usgs-map> instance: a single shared store
+// would otherwise leak (e.g. a <map-thumbnail>'s inner map snapping to the
+// editable map's center/zoom). Per-instance attrs always win:
 //
 //   centerLat / lat        : number    - current view center
 //   centerLon / lon        : number    - current view center
@@ -73,11 +76,18 @@ export default function usgsMap ({ html, state }) {
   const store = state?.store || {}
   const attrs = state?.attrs || {}
 
-  const centerLat = parseFloat(store.centerLat ?? attrs.lat)
-  const centerLon = parseFloat(store.centerLon ?? attrs.lon)
-  const zoomRaw = parseInt(store.zoom ?? attrs.zoom, 10)
+  // Attrs-first, store-fallback for view config. Store-first would leak the
+  // page-level lat/lon/zoom into every <usgs-map> on the page (including the
+  // ones nested inside <map-thumbnail>), so a thumbnail rendered alongside an
+  // editable map would silently snap to the editable map's center & zoom and
+  // thumbnails would look identical regardless of their own attributes. The
+  // rest of this function already uses `attrs ?? store` for controls/info/etc.
+  // — this keeps lat/lon/zoom/cols/rows consistent with that.
+  const centerLat = parseFloat(attrs.lat ?? store.centerLat)
+  const centerLon = parseFloat(attrs.lon ?? store.centerLon)
+  const zoomRaw = parseInt(attrs.zoom ?? store.zoom, 10)
   const zoom = Number.isFinite(zoomRaw) ? Math.max(0, Math.min(16, zoomRaw)) : 10
-  const mode = (store.collectionMode || attrs.mode) === 'create' ? 'create' : 'view'
+  const mode = (attrs.mode || store.collectionMode) === 'create' ? 'create' : 'view'
   const collectionId = store.collectionId || attrs['collection-id'] || ''
   const title = store.collectionTitle || attrs.title || ''
   const draftPinCount = Number.isFinite(parseInt(store.draftPinCount, 10))
@@ -97,14 +107,22 @@ export default function usgsMap ({ html, state }) {
   // on every gesture instead of full-page navigating. Pure enhancement layer
   // — no-JS users still get today's behavior.
   const clientRender = (attrs.render ?? store.render) === 'client'
+  // Opt-in "click anywhere to pick a point" mode. When set, a single click
+  // (no drag) on the map recenters via setView({lat, lon}) AND emits
+  // `map:select`. The crosshair stays at the geometric center, so it visually
+  // jumps to the click. Use it for picker UIs where you want the user to
+  // click directly instead of (or in addition to) panning to align the
+  // crosshair. Doesn't fire if `mode="create"` is set (create's click already
+  // opens the add-pin dialog).
+  const clickToPick = !isHidden(attrs['click-to-pick'] ?? store.clickToPick) && (attrs['click-to-pick'] != null || store.clickToPick != null)
   const polylineEncoded = typeof attrs.polyline === 'string' ? attrs.polyline : ''
   const polylinePrecisionAttr = parseInt(attrs['polyline-precision'], 10)
   // width / height attrs are intentionally ignored — see the "Sizing" note in
   // the file header. Size the parent instead.
   const baseUrlAttr = attrs['base-url'] || ''
 
-  const gridCols = clampGrid(parseInt(store.gridCols ?? attrs.cols, 10), 7)
-  const gridRows = clampGrid(parseInt(store.gridRows ?? attrs.rows, 10), 7)
+  const gridCols = clampGrid(parseInt(attrs.cols ?? store.gridCols, 10), 7)
+  const gridRows = clampGrid(parseInt(attrs.rows ?? store.gridRows, 10), 7)
   const viewW = Number.isFinite(parseInt(store.viewW, 10)) ? parseInt(store.viewW, 10) : null
   const viewH = Number.isFinite(parseInt(store.viewH, 10)) ? parseInt(store.viewH, 10) : null
   const fit = store.fit && Number.isFinite(parseFloat(store.fit.centerLat))
@@ -519,6 +537,7 @@ export default function usgsMap ({ html, state }) {
        data-mode="${mode}"
        data-chrome="${minimal ? 'minimal' : 'full'}"
        data-render="${clientRender ? 'client' : 'server'}"
+       data-click-to-pick="${clickToPick ? 'true' : 'false'}"
        data-base-url="${escapeAttr(baseUrl)}"
        data-collection-id="${escapeAttr(collectionId)}"${polylineEncoded ? ` data-polyline="${escapeAttr(polylineEncoded)}"` : ''}${Number.isFinite(polylinePrecisionAttr) ? ` data-polyline-precision="${polylinePrecisionAttr}"` : ''}
        style="${wrapInlineStyle}">
@@ -664,6 +683,7 @@ if (!customElements.get('usgs-map')) {
       this.collectionId = d.collectionId || ''
       this.baseUrl = d.baseUrl || window.location.pathname
       this.clientRender = d.render === 'client'
+      this.clickToPick = d.clickToPick === 'true'
       // Polyline coords for the route overlay. Shared across rerenders so
       // pan/zoom keeps the same route on screen. Two SSR delivery paths:
       // (a) data-polyline encoded string on the wrap, with optional
@@ -1033,7 +1053,7 @@ if (!customElements.get('usgs-map')) {
         return
       }
 
-      if (wasClick && this.mode === 'create') {
+      if (wasClick && (this.mode === 'create' || this.clickToPick)) {
         const rect = this.wrap.getBoundingClientRect()
         // rect.left already includes the wrap shift (it's part of the
         // transform), so clientX - rect.left gives a screen-relative
@@ -1043,7 +1063,14 @@ if (!customElements.get('usgs-map')) {
         const py = clientY - rect.top + this.wrapShiftY
         const { lat, lon } = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
         this.dispatchEvent(new CustomEvent('map:select', { bubbles: true, detail: { lat, lon } }))
-        this.openAddPinDialog(lat, lon)
+        if (this.mode === 'create') {
+          this.openAddPinDialog(lat, lon)
+        } else {
+          // click-to-pick: recenter on the click. setView triggers map:move,
+          // and (in render="client") rerenders in place — crosshair lands on
+          // the click point.
+          this.setView({ lat, lon })
+        }
       }
       this.applyTransform(0, 0)
     }

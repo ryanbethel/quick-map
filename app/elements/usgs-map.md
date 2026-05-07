@@ -55,11 +55,11 @@ Place your own controls anywhere; they wire to the map by id:
 
 | attr               | type             | default | notes |
 | ------------------ | ---------------- | ------- | ----- |
-| `lat`              | number           | —       | Initial center latitude. Falls back to `state.store.centerLat`. |
-| `lon`              | number           | —       | Initial center longitude. |
-| `zoom`             | int              | 10      | Web-Mercator zoom (0–16). |
-| `cols`             | int 3–13         | 7       | Tile-grid cols. |
-| `rows`             | int 3–13         | 7       | Tile-grid rows. |
+| `lat`              | number           | —       | Initial center latitude. Attrs win; falls back to `state.store.centerLat`. |
+| `lon`              | number           | —       | Initial center longitude. Attrs win; falls back to `state.store.centerLon`. |
+| `zoom`             | int              | 10      | Web-Mercator zoom (0–16). Attrs win; falls back to `state.store.zoom`. |
+| `cols`             | int 3–13         | 7       | Tile-grid cols. Attrs win; falls back to `state.store.gridCols`. |
+| `rows`             | int 3–13         | 7       | Tile-grid rows. Attrs win; falls back to `state.store.gridRows`. |
 | `width`            | —                | —       | **Removed.** Size the parent container instead. |
 | `height`           | —                | —       | **Removed.** Size the parent container instead. |
 | `controls`         | `full` / `none`  | `full`  | Show/hide the built-in nav buttons. **Gestures (drag/pinch/dblclick) still work** when `none`. |
@@ -67,6 +67,7 @@ Place your own controls anywhere; they wire to the map by id:
 | `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
 | `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
 | `chrome`           | `minimal`        | —       | Hides ALL chrome AND disables gestures. The "static preview" mode used by `<map-thumbnail>`. |
+| `click-to-pick`    | `true` / `false` | `false` | Single-click on the map (no drag) recenters via `setView` AND emits `map:select { lat, lon }`. The crosshair stays at the geometric center, so it visually jumps to the click. Use it for picker UIs. Has no effect in `mode="create"` (create's click already opens the add-pin dialog). |
 | `base-url`         | URL              | (auto)  | Where the no-JS forms post. Defaults to `/c/{id}` (view) or `/c/new` (create). |
 | `no-script`        | (boolean)        | —       | Per-instance opt-out: suppress the inline `<script>` at SSR time AND bail out of `connectedCallback` at runtime, so this instance attaches no listeners, no `ResizeObserver`, and never navigates. Required when mixing static maps (`<map-thumbnail>`, etc.) with active maps on the same page — without it, an SSR-deduped class definition from the active map will upgrade the static map and the resize-driven `refit()` will infinite-loop via `window.location.assign()`. |
 | `polyline`         | encoded string   | —       | A Google/Valhalla encoded polyline. Drawn as a route overlay on top of tiles. |
