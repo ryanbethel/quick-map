@@ -232,12 +232,14 @@ export default function usgsMap ({ html, state }) {
     cursor: grab;
   }
 
-  usgs-map .map-grid-wrap[data-mode="create"] {
+  usgs-map .map-grid-wrap[data-mode="create"],
+  usgs-map .map-grid-wrap[data-click-to-pick="true"] {
     cursor: crosshair;
   }
 
   usgs-map .map-grid-wrap.dragging,
-  usgs-map .map-grid-wrap[data-mode="create"].dragging {
+  usgs-map .map-grid-wrap[data-mode="create"].dragging,
+  usgs-map .map-grid-wrap[data-click-to-pick="true"].dragging {
     cursor: grabbing;
     will-change: transform;
   }
@@ -617,6 +619,12 @@ ${noScript ? '' : renderScript()}
 `
 }
 
+// MAINTAINER NOTE: the entire <script> body below lives inside a template
+// literal. Any backtick (`) anywhere in the script source — including in
+// JSDoc, comments, error messages, or sample strings — will prematurely
+// close this template literal at module-load time and produce a generic
+// "SyntaxError: Unexpected identifier 'X'" at the byte after the stray
+// backtick. Use single quotes / double quotes / "smart" quotes instead.
 function renderScript () {
   return /*html*/`
 <script type="module">
@@ -950,10 +958,26 @@ if (!customElements.get('usgs-map')) {
       return true
     }
 
+    // True when the event target is an interactive element that lives
+    // INSIDE this map (a slotted map-pin, chrome button/form, our own
+    // add-pin dialog, etc.). Bounded by the host element so an ancestor
+    // modal <dialog> hosting the whole map doesn't match — that would
+    // otherwise make every click on a modal-embedded map a no-op.
+    isInteractiveChild (target) {
+      if (!target || typeof target.closest !== 'function') return false
+      const matched = target.closest('map-pin, button, a, input, summary, details, form, dialog')
+      return !!matched && this.contains(matched)
+    }
+
     // ─── Pointer plumbing ──────────────────────────────────────────────
     onDown (e) {
       if (this.animating) return
-      if (e.target.closest('map-pin, button, a, input, summary, details, form, dialog')) return
+      // Skip when the click was on an interactive child OF THIS MAP (pins,
+      // chrome buttons, our own add-pin dialog, etc.). A bare
+      // closest("dialog") would also match an ancestor <dialog> that
+      // happens to host the entire map (e.g. a modal location picker), and
+      // would silently kill drag for every map nested in a modal.
+      if (this.isInteractiveChild(e.target)) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
 
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -1055,12 +1079,17 @@ if (!customElements.get('usgs-map')) {
 
       if (wasClick && (this.mode === 'create' || this.clickToPick)) {
         const rect = this.wrap.getBoundingClientRect()
-        // rect.left already includes the wrap shift (it's part of the
-        // transform), so clientX - rect.left gives a screen-relative
-        // coordinate. To translate that into the *unshifted* wrap-local
-        // frame that pixelToLatLon expects, subtract the shift back out.
-        const px = clientX - rect.left + this.wrapShiftX
-        const py = clientY - rect.top + this.wrapShiftY
+        // pixelToLatLon expects coordinates in the wrap's CSS-layout
+        // (pre-transform) frame, where (0, 0) is the top-left of the tile
+        // grid. The CSS transform translate(wrapShiftX, wrapShiftY) just
+        // moves where that frame sits on screen, so getBoundingClientRect()
+        // already reports the wrap's post-transform top-left as rect.left
+        // / rect.top — meaning (clientX - rect.left, clientY - rect.top)
+        // already lands in the grid frame. Adding wrapShift here would
+        // double-count the transform and offset the picked lat/lon by
+        // wrapShift pixels (up to ~128 px / ~kilometers at zoom 13).
+        const px = clientX - rect.left
+        const py = clientY - rect.top
         const { lat, lon } = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
         this.dispatchEvent(new CustomEvent('map:select', { bubbles: true, detail: { lat, lon } }))
         if (this.mode === 'create') {
@@ -1143,13 +1172,12 @@ if (!customElements.get('usgs-map')) {
       }
 
       const newZoom = clamp(this.zoom + zoomDelta, 0, 16)
-      // pinchStart.rect is the post-transform rect — it already has the
-      // wrap shift baked in. pixelToLatLon expects coords in the wrap's
-      // pre-transform box, and the on-screen position of the lat/lon
-      // center is rect.left + crossX (not rect.left + stageX). Fold both
-      // corrections in here.
-      const px = this.pinchStart.localX + this.wrapShiftX
-      const py = this.pinchStart.localY + this.wrapShiftY
+      // pinchStart.localX/Y was captured as (midX - rect.left, midY - rect.top)
+      // — i.e. the wrap-local offset of the pinch midpoint, which is already
+      // a tile-grid coord because rect is post-transform. See the matching
+      // comment in endDrag's click branch for why we don't add wrapShift here.
+      const px = this.pinchStart.localX
+      const py = this.pinchStart.localY
       const L = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
       const Lglobal = latLonToGlobal(L.lat, L.lon, newZoom)
       const screenCenterX = this.pinchStart.rectLeft + this.crossX
@@ -1176,11 +1204,14 @@ if (!customElements.get('usgs-map')) {
 
     onDblClick (e) {
       if (this.mode === 'create') return
-      if (e.target.closest('map-pin, button, a, input, summary, details, form, dialog')) return
+      if (this.isInteractiveChild(e.target)) return
       if (this.zoom >= 16) return
       const rect = this.wrap.getBoundingClientRect()
-      const px = e.clientX - rect.left + this.wrapShiftX
-      const py = e.clientY - rect.top + this.wrapShiftY
+      // See the matching comment in endDrag's click branch — getBoundingClientRect
+      // already reports the post-transform rect, so (clientX - rect.left) lands
+      // directly in the grid frame; adding wrapShift would double-count.
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
       const { lat, lon } = pixelToLatLon(px, py, this.zoom, this.centerLat, this.centerLon, this.gridCols, this.gridRows)
       this.navigate(lat, lon, this.zoom + 1)
     }
