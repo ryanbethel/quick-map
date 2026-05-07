@@ -106,11 +106,11 @@ export default function mapNav ({ html, state }) {
   const script = noScript ? '' : renderScript({ forId, target })
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  map-nav {
     display: block;
   }
-  .map-nav-panel {
+  map-nav .map-nav-panel {
     display: grid;
     grid-template-columns: var(--map-nav-cell, 36px) var(--map-nav-cell, 36px) var(--map-nav-cell, 36px);
     grid-template-rows: repeat(4, var(--map-nav-cell, 36px));
@@ -123,10 +123,10 @@ export default function mapNav ({ html, state }) {
     color: var(--map-nav-fg, #111111);
     width: max-content;
   }
-  .map-nav-cell {
+  map-nav .map-nav-cell {
     margin: 0;
   }
-  .map-nav-cell button {
+  map-nav .map-nav-cell button {
     width: var(--map-nav-cell, 36px);
     height: var(--map-nav-cell, 36px);
     background-color: var(--map-nav-button-bg, #ffffff);
@@ -141,20 +141,20 @@ export default function mapNav ({ html, state }) {
     font: inherit;
     font-size: 16px;
   }
-  .map-nav-cell button svg {
+  map-nav .map-nav-cell button svg {
     width: 18px;
     height: 18px;
   }
-  .map-nav-cell button:hover {
+  map-nav .map-nav-cell button:hover {
     background-color: var(--map-nav-button-hover-bg, #f2f2f2);
   }
-  .map-nav-pan-n { grid-column: 2; grid-row: 1; }
-  .map-nav-pan-w { grid-column: 1; grid-row: 2; }
-  .map-nav-pan-e { grid-column: 3; grid-row: 2; }
-  .map-nav-pan-s { grid-column: 2; grid-row: 3; }
-  .map-nav-zoom-in { grid-column: 1; grid-row: 4; }
-  .map-nav-zoom-out { grid-column: 3; grid-row: 4; }
-  .map-nav-locate { grid-column: 2; grid-row: 4; }
+  map-nav .map-nav-pan-n { grid-column: 2; grid-row: 1; }
+  map-nav .map-nav-pan-w { grid-column: 1; grid-row: 2; }
+  map-nav .map-nav-pan-e { grid-column: 3; grid-row: 2; }
+  map-nav .map-nav-pan-s { grid-column: 2; grid-row: 3; }
+  map-nav .map-nav-zoom-in { grid-column: 1; grid-row: 4; }
+  map-nav .map-nav-zoom-out { grid-column: 3; grid-row: 4; }
+  map-nav .map-nav-locate { grid-column: 2; grid-row: 4; }
 </style>
 ${panel}
 ${script}

@@ -26,12 +26,25 @@
 //                                        info / creator panel.
 //   crosshair              : "false"          - hide the center crosshair.
 //   scale                  : "false"          - hide the bottom-right scale.
-//   width / height         : css size  - explicit override; otherwise the
-//                                        host element fills its parent
+//   width / height         : (deprecated) — see "Sizing" below.
 //   base-url               : URL       - where forms submit (defaults to the
 //                                        collection-id-derived URL or current pathname)
 //   no-script              : boolean   - skip the inline <script>; emits a
 //                                        purely static, no-JS map
+//
+// Sizing: the host always fills its parent (100% × 100%). Size the *parent*
+// to size the map — e.g. `<div style="height: 360px"><usgs-map …></usgs-map></div>`,
+// or use `<map-thumbnail width=… height=…>` for a fixed-size preview.
+// Earlier versions accepted `width=` / `height=` attributes; those are now
+// no-ops because hf-maps' SSR runs in flat-DOM (no Shadow DOM) and any
+// per-instance value baked into the global stylesheet leaks across every
+// `<usgs-map>` on the page (the LAST instance wins).
+//
+// Authoring note: all static rules live in `<style scope="global">` with
+// explicit element-name selectors (so Enhance dedupes them once, no
+// `:host` transform fragility). Per-instance values (grid dimensions,
+// transform shifts) ride on the matching element's inline `style`
+// attribute and never enter the stylesheet.
 //
 // Slotted children:
 //   default slot           - <map-pin> elements (and any custom overlays)
@@ -86,8 +99,8 @@ export default function usgsMap ({ html, state }) {
   const clientRender = (attrs.render ?? store.render) === 'client'
   const polylineEncoded = typeof attrs.polyline === 'string' ? attrs.polyline : ''
   const polylinePrecisionAttr = parseInt(attrs['polyline-precision'], 10)
-  const widthAttr = sizeAttr(attrs.width)
-  const heightAttr = sizeAttr(attrs.height)
+  // width / height attrs are intentionally ignored — see the "Sizing" note in
+  // the file header. Size the parent instead.
   const baseUrlAttr = attrs['base-url'] || ''
 
   const gridCols = clampGrid(parseInt(store.gridCols ?? attrs.cols, 10), 7)
@@ -159,22 +172,27 @@ export default function usgsMap ({ html, state }) {
   const zoomInFields = navFields(centerLat, centerLon, Math.min(zoom + 1, 16), gridCols, gridRows, viewW, viewH)
   const zoomOutFields = navFields(centerLat, centerLon, Math.max(zoom - 1, 0), gridCols, gridRows, viewW, viewH)
 
-  const hostStyle = `${widthAttr ? `width: ${widthAttr};` : ''}${heightAttr ? `height: ${heightAttr};` : ''}`
+  // Per-instance inline styles. These are the only places we encode values
+  // that vary per `<usgs-map>` invocation (grid dimensions, wrap shift) —
+  // everything else is in the static `<style scope="global">` block below
+  // and gets deduped to one rule across all instances on the page.
+  const wrapInlineStyle = `width: ${gridCols * 256}px; height: ${gridRows * 256}px;${(wrapShiftX || wrapShiftY) ? ` transform: translate(${wrapShiftX}px, ${wrapShiftY}px);` : ''}`
+  const gridInlineStyle = `grid-template-columns: repeat(${gridCols}, 256px); grid-template-rows: repeat(${gridRows}, 256px);`
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  usgs-map {
     display: block;
     position: relative;
-    width: ${widthAttr || '100%'};
-    height: ${heightAttr || '100%'};
+    width: 100%;
+    height: 100%;
     min-height: var(--usgs-map-min-height, 0);
     overflow: hidden;
     background-color: var(--usgs-map-bg, #e8e8e8);
     color: var(--usgs-map-fg, #111111);
   }
 
-  .map-stage {
+  usgs-map .map-stage {
     position: relative;
     width: 100%;
     height: 100%;
@@ -183,10 +201,8 @@ export default function usgsMap ({ html, state }) {
     justify-content: center;
   }
 
-  .map-grid-wrap {
+  usgs-map .map-grid-wrap {
     position: relative;
-    width: ${gridCols * 256}px;
-    height: ${gridRows * 256}px;
     /* Don't let the flex parent (.map-stage) shrink the wrap. With absolutely
        positioned children, min-width: auto resolves near 0 and the flex
        algorithm collapses the wrap to the stage width — combined with the
@@ -198,40 +214,38 @@ export default function usgsMap ({ html, state }) {
     cursor: grab;
   }
 
-  .map-grid-wrap[data-mode="create"] {
+  usgs-map .map-grid-wrap[data-mode="create"] {
     cursor: crosshair;
   }
 
-  .map-grid-wrap.dragging,
-  .map-grid-wrap[data-mode="create"].dragging {
+  usgs-map .map-grid-wrap.dragging,
+  usgs-map .map-grid-wrap[data-mode="create"].dragging {
     cursor: grabbing;
     will-change: transform;
   }
 
-  .map-grid-wrap.snapping {
+  usgs-map .map-grid-wrap.snapping {
     transition: transform 130ms ease-out;
   }
 
-  .map-grid-wrap.pinching {
+  usgs-map .map-grid-wrap.pinching {
     will-change: transform;
   }
 
-  .map-grid {
+  usgs-map .map-grid {
     display: grid;
-    grid-template-columns: repeat(${gridCols}, 256px);
-    grid-template-rows: repeat(${gridRows}, 256px);
     gap: 0;
     position: absolute;
     inset: 0;
   }
 
-  .tile-container {
+  usgs-map .tile-container {
     position: relative;
     width: 256px;
     height: 256px;
   }
 
-  img.map-tile {
+  usgs-map img.map-tile {
     width: 256px;
     height: 256px;
     display: block;
@@ -239,13 +253,13 @@ export default function usgsMap ({ html, state }) {
     -webkit-user-drag: none;
   }
 
-  .tile-container svg.route-overlay {
+  usgs-map .tile-container svg.route-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
   }
 
-  .center-crosshair {
+  usgs-map .center-crosshair {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -260,7 +274,7 @@ export default function usgsMap ({ html, state }) {
     z-index: 25;
   }
 
-  .map-scale-default {
+  usgs-map .map-scale-default {
     position: absolute;
     bottom: 12px;
     right: 12px;
@@ -268,7 +282,7 @@ export default function usgsMap ({ html, state }) {
     z-index: 5;
   }
 
-  .panel {
+  usgs-map .panel {
     position: absolute;
     background-color: var(--usgs-map-panel-bg, rgba(255, 255, 255, 0.95));
     border: 1px solid var(--usgs-map-panel-border, #cccccc);
@@ -278,7 +292,7 @@ export default function usgsMap ({ html, state }) {
     box-sizing: border-box;
   }
 
-  .controls {
+  usgs-map .controls {
     top: 12px;
     right: 12px;
     padding: 6px;
@@ -290,11 +304,11 @@ export default function usgsMap ({ html, state }) {
     justify-items: center;
   }
 
-  .controls form {
+  usgs-map .controls form {
     margin: 0;
   }
 
-  .controls button {
+  usgs-map .controls button {
     width: 36px;
     height: 36px;
     background-color: var(--usgs-map-button-bg, #ffffff);
@@ -310,18 +324,18 @@ export default function usgsMap ({ html, state }) {
     font-size: 16px;
   }
 
-  .controls button:hover {
+  usgs-map .controls button:hover {
     background-color: var(--usgs-map-button-hover-bg, #f2f2f2);
   }
 
-  .controls .nudge-n { grid-column: 2; grid-row: 1; }
-  .controls .nudge-w { grid-column: 1; grid-row: 2; }
-  .controls .nudge-e { grid-column: 3; grid-row: 2; }
-  .controls .nudge-s { grid-column: 2; grid-row: 3; }
-  .controls .zoom-in { grid-column: 1; grid-row: 4; }
-  .controls .zoom-out { grid-column: 3; grid-row: 4; }
+  usgs-map .controls .nudge-n { grid-column: 2; grid-row: 1; }
+  usgs-map .controls .nudge-w { grid-column: 1; grid-row: 2; }
+  usgs-map .controls .nudge-e { grid-column: 3; grid-row: 2; }
+  usgs-map .controls .nudge-s { grid-column: 2; grid-row: 3; }
+  usgs-map .controls .zoom-in { grid-column: 1; grid-row: 4; }
+  usgs-map .controls .zoom-out { grid-column: 3; grid-row: 4; }
 
-  .info-panel {
+  usgs-map .info-panel {
     bottom: 12px;
     left: 12px;
     width: 300px;
@@ -329,26 +343,26 @@ export default function usgsMap ({ html, state }) {
     padding: 12px;
   }
 
-  .info-panel h2 {
+  usgs-map .info-panel h2 {
     font-size: 15px;
     margin: 0 0 6px 0;
   }
 
-  .info-panel p,
-  .info-panel .hint {
+  usgs-map .info-panel p,
+  usgs-map .info-panel .hint {
     font-size: 12px;
     margin: 0 0 8px 0;
     color: var(--usgs-map-muted, #444444);
   }
 
-  .info-panel form {
+  usgs-map .info-panel form {
     margin: 0 0 6px 0;
     display: grid;
     grid-template-columns: 1fr;
     gap: 6px;
   }
 
-  .info-panel input[type="text"] {
+  usgs-map .info-panel input[type="text"] {
     width: 100%;
     height: 30px;
     padding: 0 8px;
@@ -360,7 +374,7 @@ export default function usgsMap ({ html, state }) {
     font: inherit;
   }
 
-  .info-panel button {
+  usgs-map .info-panel button {
     height: 30px;
     padding: 0 12px;
     border-radius: 9999px;
@@ -371,14 +385,14 @@ export default function usgsMap ({ html, state }) {
     cursor: pointer;
   }
 
-  .info-panel button.primary,
-  .info-panel a.link-btn.primary {
+  usgs-map .info-panel button.primary,
+  usgs-map .info-panel a.link-btn.primary {
     background-color: var(--usgs-map-primary-bg, #0066ff);
     color: var(--usgs-map-primary-fg, #ffffff);
     border-color: var(--usgs-map-primary-bg, #0066ff);
   }
 
-  .info-panel a.link-btn {
+  usgs-map .info-panel a.link-btn {
     display: inline-flex;
     align-items: center;
     height: 30px;
@@ -391,14 +405,14 @@ export default function usgsMap ({ html, state }) {
     font-size: 13px;
   }
 
-  .info-panel .actions {
+  usgs-map .info-panel .actions {
     display: flex;
     gap: 6px;
     justify-content: flex-end;
     flex-wrap: wrap;
   }
 
-  .map-flash {
+  usgs-map .map-flash {
     position: absolute;
     top: 12px;
     left: 50%;
@@ -414,12 +428,12 @@ export default function usgsMap ({ html, state }) {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 
-  .map-error {
+  usgs-map .map-error {
     padding: 16px;
     color: #b3261e;
   }
 
-  .add-pin-dialog {
+  usgs-map .add-pin-dialog {
     border: 1px solid var(--usgs-map-panel-border, #cccccc);
     border-radius: 8px;
     padding: 16px;
@@ -431,29 +445,29 @@ export default function usgsMap ({ html, state }) {
     font: inherit;
   }
 
-  .add-pin-dialog::backdrop {
+  usgs-map .add-pin-dialog::backdrop {
     background-color: rgba(0, 0, 0, 0.32);
   }
 
-  .add-pin-dialog form {
+  usgs-map .add-pin-dialog form {
     display: grid;
     gap: 8px;
     margin: 0;
   }
 
-  .add-pin-dialog h3 {
+  usgs-map .add-pin-dialog h3 {
     margin: 0;
     font-size: 16px;
   }
 
-  .add-pin-dialog label {
+  usgs-map .add-pin-dialog label {
     display: grid;
     gap: 4px;
     font-size: 13px;
     color: var(--usgs-map-muted, #444444);
   }
 
-  .add-pin-dialog input[type="text"] {
+  usgs-map .add-pin-dialog input[type="text"] {
     height: 32px;
     padding: 0 8px;
     border: 1px solid var(--usgs-map-panel-border, #cccccc);
@@ -464,20 +478,20 @@ export default function usgsMap ({ html, state }) {
     box-sizing: border-box;
   }
 
-  .add-pin-dialog .coords-preview {
+  usgs-map .add-pin-dialog .coords-preview {
     margin: 0;
     font-size: 11px;
     color: #666666;
   }
 
-  .add-pin-dialog .dialog-actions {
+  usgs-map .add-pin-dialog .dialog-actions {
     display: flex;
     justify-content: flex-end;
     gap: 6px;
     margin-top: 4px;
   }
 
-  .add-pin-dialog button {
+  usgs-map .add-pin-dialog button {
     height: 32px;
     padding: 0 14px;
     border-radius: 9999px;
@@ -488,14 +502,14 @@ export default function usgsMap ({ html, state }) {
     cursor: pointer;
   }
 
-  .add-pin-dialog button.primary {
+  usgs-map .add-pin-dialog button.primary {
     background-color: var(--usgs-map-primary-bg, #0066ff);
     color: var(--usgs-map-primary-fg, #ffffff);
     border-color: var(--usgs-map-primary-bg, #0066ff);
   }
 </style>
 
-<div class="map-stage"${hostStyle ? ` style="${hostStyle}"` : ''}>
+<div class="map-stage">
   <div class="map-grid-wrap"
        data-center-lat="${centerLat}"
        data-center-lon="${centerLon}"
@@ -506,8 +520,9 @@ export default function usgsMap ({ html, state }) {
        data-chrome="${minimal ? 'minimal' : 'full'}"
        data-render="${clientRender ? 'client' : 'server'}"
        data-base-url="${escapeAttr(baseUrl)}"
-       data-collection-id="${escapeAttr(collectionId)}"${polylineEncoded ? ` data-polyline="${escapeAttr(polylineEncoded)}"` : ''}${Number.isFinite(polylinePrecisionAttr) ? ` data-polyline-precision="${polylinePrecisionAttr}"` : ''}${(wrapShiftX || wrapShiftY) ? ` style="transform: translate(${wrapShiftX}px, ${wrapShiftY}px)"` : ''}>
-    <div class="map-grid">
+       data-collection-id="${escapeAttr(collectionId)}"${polylineEncoded ? ` data-polyline="${escapeAttr(polylineEncoded)}"` : ''}${Number.isFinite(polylinePrecisionAttr) ? ` data-polyline-precision="${polylinePrecisionAttr}"` : ''}
+       style="${wrapInlineStyle}">
+    <div class="map-grid" style="${gridInlineStyle}">
       ${grid.mapTileGrid.map(row => row.map(cell => `
         <div class="tile-container">
           <img class="map-tile" src="${cell.tileUrl}" loading="lazy" width="256" height="256" alt="">
@@ -626,14 +641,15 @@ if (!customElements.get('usgs-map')) {
 
   class UsgsMap extends HTMLElement {
     connectedCallback () {
-      // Per-instance opt-out. The no-script attribute already suppresses this instance's
-      // inline <script> at SSR time, but in multi-map pages another active
-      // instance's script gets hoisted and defines the class — which would
-      // otherwise upgrade *every* <usgs-map> on the page (including ones
-      // that opted out, e.g. <map-thumbnail>'s inner map). Without this
-      // bail, those upgraded thumbnails attach a ResizeObserver, see the
-      // SSR grid (cols*256 / rows*256) doesn't fit their small container,
-      // and call refit() → window.location.assign(...) → infinite reload.
+      // Per-instance opt-out. The "no-script" attribute already suppresses
+      // this instance's inline script at SSR time, but in multi-map pages
+      // another active instance's script gets hoisted and defines the class
+      // -- which would otherwise upgrade EVERY usgs-map on the page,
+      // including ones that opted out (e.g. map-thumbnail's inner map).
+      // Without this bail, those upgraded thumbnails attach a ResizeObserver,
+      // see the SSR grid (cols*256 / rows*256) doesn't fit their small
+      // container, and call refit() -> window.location.assign(...) -> infinite
+      // reload.
       if (this.hasAttribute('no-script')) return
       this.wrap = this.querySelector('.map-grid-wrap')
       if (!this.wrap) return
@@ -1543,13 +1559,6 @@ function navFields (lat, lon, zoom, cols, rows, w, h) {
 function clampGrid (n, fallback) {
   if (!Number.isFinite(n)) return fallback
   return Math.max(3, Math.min(13, n))
-}
-
-function sizeAttr (raw) {
-  if (raw == null || raw === '') return ''
-  const s = String(raw).trim()
-  if (/^\d+(\.\d+)?$/.test(s)) return s + 'px'
-  return s
 }
 
 // True when an attribute means "hide". `null` / `undefined` / missing means

@@ -49,25 +49,25 @@ export default function mapPin ({ html, state }) {
     : ''
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  map-pin {
     position: absolute;
     inset: 0;
     pointer-events: none;
   }
 
-  .map-pin-anchor {
+  map-pin .map-pin-anchor {
     position: absolute;
     transform: translate(-50%, -100%);
     pointer-events: auto;
     z-index: 10;
   }
 
-  .map-pin-anchor details {
+  map-pin .map-pin-anchor details {
     position: relative;
   }
 
-  .map-pin-anchor summary {
+  map-pin .map-pin-anchor summary {
     list-style: none;
     cursor: pointer;
     color: var(--map-pin-color, #1a73e8);
@@ -76,21 +76,21 @@ export default function mapPin ({ html, state }) {
     height: var(--map-pin-size, 28px);
   }
 
-  .map-pin-anchor summary::-webkit-details-marker {
+  map-pin .map-pin-anchor summary::-webkit-details-marker {
     display: none;
   }
 
-  .map-pin-anchor summary svg {
+  map-pin .map-pin-anchor summary svg {
     width: 100%;
     height: 100%;
     filter: var(--map-pin-shadow, drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)));
   }
 
-  .map-pin-anchor details[open] summary svg {
+  map-pin .map-pin-anchor details[open] summary svg {
     color: var(--map-pin-color-open, #d62828);
   }
 
-  .map-pin-info {
+  map-pin .map-pin-info {
     position: absolute;
     bottom: calc(100% + 6px);
     left: 50%;
@@ -106,7 +106,7 @@ export default function mapPin ({ html, state }) {
     font: var(--map-pin-info-font, 13px/1.35 system-ui, sans-serif);
   }
 
-  .map-pin-info::after {
+  map-pin .map-pin-info::after {
     content: "";
     position: absolute;
     top: 100%;
@@ -116,22 +116,22 @@ export default function mapPin ({ html, state }) {
     border-top-color: var(--map-pin-info-bg, rgba(255, 255, 255, 0.98));
   }
 
-  .map-pin-info h3 {
+  map-pin .map-pin-info h3 {
     font-size: 14px;
     margin: 0 0 4px 0;
   }
 
-  .map-pin-info p {
+  map-pin .map-pin-info p {
     margin: 0 0 4px 0;
     color: var(--map-pin-info-fg, #333333);
   }
 
-  .map-pin-info .map-pin-coords {
+  map-pin .map-pin-info .map-pin-coords {
     color: #666666;
     font-size: 11px;
   }
 
-  .map-pin-info .map-pin-actions {
+  map-pin .map-pin-info .map-pin-actions {
     display: flex;
     gap: 6px;
     justify-content: flex-end;
@@ -139,12 +139,12 @@ export default function mapPin ({ html, state }) {
     margin-top: 6px;
   }
 
-  .map-pin-info form {
+  map-pin .map-pin-info form {
     margin: 0;
   }
 
-  .map-pin-info button,
-  .map-pin-info a {
+  map-pin .map-pin-info button,
+  map-pin .map-pin-info a {
     display: inline-flex;
     align-items: center;
     height: 26px;
@@ -159,7 +159,7 @@ export default function mapPin ({ html, state }) {
     cursor: pointer;
   }
 
-  .map-pin-info button.map-pin-danger {
+  map-pin .map-pin-info button.map-pin-danger {
     color: var(--map-pin-danger-fg, #b3261e);
     border-color: var(--map-pin-danger-fg, #b3261e);
   }

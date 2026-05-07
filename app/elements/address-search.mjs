@@ -39,17 +39,17 @@ export default function addressSearch ({ html, state }) {
   const script = noScript ? '' : renderScript({ mode, action, forId, target, zoom, inputName })
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  address-search {
     display: block;
     width: 100%;
   }
-  .address-search-form {
+  address-search .address-search-form {
     position: relative;
     margin: 0;
     width: 100%;
   }
-  .address-search-input {
+  address-search .address-search-input {
     width: 100%;
     height: var(--address-search-height, 40px);
     padding: 0 40px 0 12px;
@@ -61,10 +61,10 @@ export default function addressSearch ({ html, state }) {
     font: inherit;
     box-shadow: var(--address-search-shadow, 0 1px 3px rgba(0, 0, 0, 0.2));
   }
-  .address-search-input::placeholder {
+  address-search .address-search-input::placeholder {
     color: var(--address-search-placeholder, #888888);
   }
-  .address-search-submit {
+  address-search .address-search-submit {
     position: absolute;
     top: 50%;
     right: 6px;
@@ -80,10 +80,10 @@ export default function addressSearch ({ html, state }) {
     border: 0;
     cursor: pointer;
   }
-  .address-search-submit:hover {
+  address-search .address-search-submit:hover {
     color: var(--address-search-icon-hover, #111111);
   }
-  .address-search-submit svg {
+  address-search .address-search-submit svg {
     width: 20px;
     height: 20px;
   }

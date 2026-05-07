@@ -4,6 +4,13 @@
 // chrome="minimal" and no-script so it ships zero JS, and forces a fixed
 // pixel size so the parent layout doesn't have to worry about height
 // inheritance.
+//
+// Authoring note: hf-maps' SSR runs in flat-DOM (no Shadow DOM), so any
+// per-instance CSS value baked into a `<style>` block leaks across every
+// instance via the Enhance global stylesheet — the LAST instance wins.
+// All static rules live in `<style scope="global">` with explicit element-
+// name selectors; per-instance values (width/height) ride on the inner
+// wrapper's inline `style` attribute and never enter the stylesheet.
 
 export default function mapThumbnail ({ html, state }) {
   const attrs = state?.attrs || {}
@@ -16,11 +23,10 @@ export default function mapThumbnail ({ html, state }) {
   const rows = attrs.rows || '3'
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  map-thumbnail { display: contents; }
+  map-thumbnail .map-thumbnail-box {
     display: inline-block;
-    width: ${width};
-    height: ${height};
     vertical-align: middle;
     border: 1px solid var(--map-thumbnail-border, #cccccc);
     border-radius: var(--map-thumbnail-radius, 6px);
@@ -29,18 +35,18 @@ export default function mapThumbnail ({ html, state }) {
   }
 </style>
 
-<usgs-map
-  lat="${escapeAttr(lat)}"
-  lon="${escapeAttr(lon)}"
-  zoom="${escapeAttr(zoom)}"
-  cols="${escapeAttr(cols)}"
-  rows="${escapeAttr(rows)}"
-  width="100%"
-  height="100%"
-  chrome="minimal"
-  no-script>
-  <slot></slot>
-</usgs-map>
+<div class="map-thumbnail-box" style="width: ${escapeAttr(width)}; height: ${escapeAttr(height)};">
+  <usgs-map
+    lat="${escapeAttr(lat)}"
+    lon="${escapeAttr(lon)}"
+    zoom="${escapeAttr(zoom)}"
+    cols="${escapeAttr(cols)}"
+    rows="${escapeAttr(rows)}"
+    chrome="minimal"
+    no-script>
+    <slot></slot>
+  </usgs-map>
+</div>
 `
 }
 

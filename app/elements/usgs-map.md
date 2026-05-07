@@ -16,7 +16,7 @@ In a fixed container:
 </div>
 ```
 
-The element fills its parent (`height: 100%`). For a full-page render, the document needs an unbroken height chain: `html, body { height: 100% }` (or use the `height` attr — see below).
+The element fills its parent (`width: 100%; height: 100%`). For a full-page render, the document needs an unbroken height chain: `html, body { height: 100% }`. **Size the parent, not the map** — `<usgs-map width="…" height="…">` attributes are no-ops; they used to be implemented via `:host { width: …; height: … }` baked per-instance into the global stylesheet, which collides between instances under Enhance's flat-DOM SSR. See ["Authoring constraint"](#authoring-constraint) below.
 
 ## Composition
 
@@ -60,8 +60,8 @@ Place your own controls anywhere; they wire to the map by id:
 | `zoom`             | int              | 10      | Web-Mercator zoom (0–16). |
 | `cols`             | int 3–13         | 7       | Tile-grid cols. |
 | `rows`             | int 3–13         | 7       | Tile-grid rows. |
-| `width`            | css size         | `100%`  | `400`, `400px`, `80%`, `100dvw`, etc. |
-| `height`           | css size         | `100%`  | Same. |
+| `width`            | —                | —       | **Removed.** Size the parent container instead. |
+| `height`           | —                | —       | **Removed.** Size the parent container instead. |
 | `controls`         | `full` / `none`  | `full`  | Show/hide the built-in nav buttons. **Gestures (drag/pinch/dblclick) still work** when `none`. |
 | `info`             | `full` / `none`  | `full`  | Show/hide the bottom-left info / creator panel. |
 | `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
@@ -165,6 +165,18 @@ Working example: [app/pages/embed/$id.mjs](../pages/embed/$id.mjs) (route: `/emb
 | `--usgs-map-muted`                 | `#444444`                     |
 
 Slotted children (`<map-pin>`, `<map-nav>`, `<map-scale>`) have their own variables — see their docs.
+
+## Authoring constraint
+
+hf-maps' SSR runs in **flat-DOM (no Shadow DOM)** under Enhance. The `:host` selector in `<style>` blocks is rewritten to the tag-name selector and emitted into a single global stylesheet that's deduped by exact text match. That means **any per-instance value interpolated into a `<style>` block leaks across every instance of the same element on the page** — the last one parsed wins under the cascade.
+
+In practice that bit us with two patterns: per-instance host sizing (`<usgs-map width="200">` overriding the next instance), and per-instance `.map-grid-wrap` / `.map-grid` dimensions varying with `cols`/`rows`. To avoid the trap going forward, hf-maps elements follow this rule:
+
+1. **Static rules** live in `<style scope="global">` with explicit element-name selectors (no `:host`). Enhance dedupes them once across all instances.
+2. **Per-instance values** (sizes, transforms, anything that varies with attrs) ride on the matching element's inline `style` attribute and never enter the stylesheet.
+3. **Sizing the host** (when needed) is the consumer's responsibility — wrap the element with a sized container, or use a preset wrapper like `<map-thumbnail>` that internally renders an inline-styled box.
+
+When authoring a new template, treat anything you'd interpolate into CSS as a smell: move it to `style="…"` on the rendered element instead.
 
 ## Client behavior summary
 

@@ -55,12 +55,12 @@ export default function routeSearch ({ html, state }) {
   const script = noScript ? '' : renderScript({ mode, action, forId, target, engine })
 
   return html`
-<style>
-  :host {
+<style scope="global">
+  route-search {
     display: block;
     width: 100%;
   }
-  .route-search-form {
+  route-search .route-search-form {
     margin: 0;
     display: grid;
     gap: 6px;
@@ -72,17 +72,17 @@ export default function routeSearch ({ html, state }) {
     color: var(--route-search-fg, #111111);
     box-sizing: border-box;
   }
-  .route-search-row {
+  route-search .route-search-row {
     display: grid;
     grid-template-columns: 56px 1fr;
     gap: 6px;
     align-items: center;
   }
-  .route-search-label {
+  route-search .route-search-label {
     font-size: 14px;
     color: var(--route-search-label-fg, #444444);
   }
-  .route-search-input {
+  route-search .route-search-input {
     width: 100%;
     height: 32px;
     padding: 0 8px;
@@ -93,16 +93,16 @@ export default function routeSearch ({ html, state }) {
     border-radius: var(--route-search-input-radius, 4px);
     font: inherit;
   }
-  .route-search-input::placeholder {
+  route-search .route-search-input::placeholder {
     color: var(--route-search-placeholder, #999999);
   }
-  .route-search-actions {
+  route-search .route-search-actions {
     display: flex;
     gap: 6px;
     justify-content: flex-end;
     margin-top: 4px;
   }
-  .route-search-actions button {
+  route-search .route-search-actions button {
     height: 32px;
     padding: 0 12px;
     background-color: var(--route-search-button-bg, #ffffff);
@@ -112,12 +112,12 @@ export default function routeSearch ({ html, state }) {
     font: inherit;
     cursor: pointer;
   }
-  .route-search-submit {
+  route-search .route-search-submit {
     background-color: var(--route-search-primary-bg, #0066ff) !important;
     color: var(--route-search-primary-fg, #ffffff) !important;
     border-color: var(--route-search-primary-bg, #0066ff) !important;
   }
-  .route-search-actions button:hover {
+  route-search .route-search-actions button:hover {
     filter: brightness(0.95);
   }
 </style>

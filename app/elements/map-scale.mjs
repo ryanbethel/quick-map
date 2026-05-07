@@ -49,9 +49,9 @@ export default function mapScale ({ html, state }) {
   const maxWidth = hostMaxWidthStyle(computed)
 
   return html`
-<style>
-  :host { display: inline-block; }
-  .map-scale {
+<style scope="global">
+  map-scale { display: inline-block; }
+  map-scale .map-scale {
     display: inline-flex;
     flex-direction: column;
     gap: var(--map-scale-gap, 1px);
@@ -62,13 +62,13 @@ export default function mapScale ({ html, state }) {
     font: var(--map-scale-font, 11px/1 system-ui, sans-serif);
     pointer-events: none;
   }
-  .map-scale-row {
+  map-scale .map-scale-row {
     display: flex;
     align-items: center;
     gap: 6px;
     line-height: 1;
   }
-  .map-scale-bar {
+  map-scale .map-scale-bar {
     position: relative;
     height: 8px;
     box-sizing: border-box;
@@ -77,7 +77,7 @@ export default function mapScale ({ html, state }) {
     border-bottom: var(--map-scale-line, 1.5px) solid currentColor;
     flex: 0 0 auto;
   }
-  .map-scale-tick {
+  map-scale .map-scale-tick {
     position: absolute;
     top: 50%;
     width: 0;
@@ -85,11 +85,11 @@ export default function mapScale ({ html, state }) {
     border-left: 1px solid currentColor;
     transform: translateX(-0.5px);
   }
-  .map-scale-label {
+  map-scale .map-scale-label {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  .map-scale-empty { display: none; }
+  map-scale .map-scale-empty { display: none; }
 </style>
 
 <span class="map-scale" role="img" aria-label="${computed.ariaLabel}"${maxWidth ? ` style="${maxWidth}"` : ''}>${inner}</span>

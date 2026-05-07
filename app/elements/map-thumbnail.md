@@ -1,6 +1,8 @@
 # `<map-thumbnail>`
 
-Static, fixed-size preview of a USGS topo map. Pure composition over `<usgs-map>` — locks `chrome="minimal"` and `no-script` so it ships zero JS, and forces a pixel `width`/`height` so the host layout doesn't have to think about height inheritance.
+Static, fixed-size preview of a USGS topo map. Pure composition over `<usgs-map>` — locks `chrome="minimal"` and `no-script` so it ships zero JS, and renders an inline-styled `.map-thumbnail-box` wrapper at the requested `width`/`height` so the host layout doesn't have to think about height inheritance.
+
+> The `<usgs-map>` inside has no `width`/`height` attrs (those are no-ops upstream — see [`<usgs-map>`'s authoring constraint](./usgs-map.md#authoring-constraint)). Per-instance sizing happens via the `style="width: …; height: …;"` attribute on `.map-thumbnail-box`, so two thumbnails of different sizes on the same page no longer overwrite each other in the global stylesheet.
 
 ## Usage
 

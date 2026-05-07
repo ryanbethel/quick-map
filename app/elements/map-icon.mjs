@@ -2,6 +2,10 @@
 //
 // Purely decorative SVG that says "this thing has a map." No tiles, no
 // network, no script. Theme via CSS variables.
+//
+// Authoring note: per-instance `size` is applied via inline style on the
+// inner <span>, never inside the global stylesheet — see the matching note
+// in usgs-map.mjs for why.
 
 export default function mapIcon ({ html, state }) {
   const attrs = state?.attrs || {}
@@ -9,36 +13,34 @@ export default function mapIcon ({ html, state }) {
   const showPin = attrs.pin == null ? true : attrs.pin !== 'false' && attrs.pin !== '0'
 
   return html`
-<style>
-  .map-icon {
+<style scope="global">
+  map-icon .map-icon {
     display: inline-flex;
-    width: ${size}px;
-    height: ${size}px;
     color: var(--map-icon-color, #2b6cb0);
     background-color: var(--map-icon-bg, #e8f0e1);
     border: 1px solid var(--map-icon-border, currentColor);
     border-radius: var(--map-icon-radius, 4px);
     overflow: hidden;
   }
-  .map-icon svg {
+  map-icon .map-icon svg {
     width: 100%;
     height: 100%;
     display: block;
   }
-  .map-icon .map-icon-contour {
+  map-icon .map-icon .map-icon-contour {
     fill: none;
     stroke: currentColor;
     stroke-width: 1;
     opacity: 0.55;
   }
-  .map-icon .map-icon-pin {
+  map-icon .map-icon .map-icon-pin {
     fill: var(--map-icon-pin-color, #d62828);
     stroke: white;
     stroke-width: 0.6;
   }
 </style>
 
-<span class="map-icon" role="img" aria-label="Map">
+<span class="map-icon" role="img" aria-label="Map" style="width: ${size}px; height: ${size}px;">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <path class="map-icon-contour" d="M 0 7 C 6 4, 12 9, 18 6 S 24 9, 24 9"/>
     <path class="map-icon-contour" d="M 0 12 C 5 10, 11 14, 17 11 S 24 13, 24 13"/>
