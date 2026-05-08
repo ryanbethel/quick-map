@@ -10,7 +10,7 @@
 
 import { latLonToGridPixel } from '../browser/tiles.mjs'
 
-export default function mapPin ({ html, state }) {
+export default function mapPin({ html, state }) {
   const attrs = state?.attrs || {}
   const store = state?.store || {}
 
@@ -191,10 +191,10 @@ export default function mapPin ({ html, state }) {
 `
 }
 
-function escapeText (s) {
+function escapeText(s) {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }

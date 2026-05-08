@@ -30,7 +30,7 @@ import { PIXELS_PER_TILE, pixelToLatLon, crosshairPixel } from '../browser/tiles
 // matching note in `app/elements/usgs-map.mjs`.
 const TILES_LIB_URL = '/_public/browser/tiles.mjs'
 
-export default function mapNav ({ html, state }) {
+export default function mapNav({ html, state }) {
   const attrs = state?.attrs || {}
   const noScript = attrs['no-script'] != null
   const lat = parseFloat(attrs.lat)
@@ -161,7 +161,7 @@ ${script}
 `
 }
 
-function renderScript ({ forId, target }) {
+function renderScript({ forId, target }) {
   return /*html*/`
 <script type="module">
 import { PIXELS_PER_TILE, pixelToLatLon, crosshairPixel } from '${TILES_LIB_URL}'
@@ -316,6 +316,6 @@ if (!customElements.get('map-nav')) {
 </script>`
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }

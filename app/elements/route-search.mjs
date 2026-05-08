@@ -11,7 +11,7 @@
 //
 // See route-search.md for the full attribute / event reference.
 
-export default function routeSearch ({ html, state }) {
+export default function routeSearch({ html, state }) {
   const attrs = state?.attrs || {}
   const store = state?.store || {}
   const mode = attrs.mode || ''
@@ -126,7 +126,7 @@ ${script}
 `
 }
 
-function renderScript ({ mode, action, forId, target, engine }) {
+function renderScript({ mode, action, forId, target, engine }) {
   const direct = mode === 'direct'
   return `
 <script type="module">
@@ -276,6 +276,6 @@ if (!customElements.get('route-search')) {
 </script>`
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }

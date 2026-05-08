@@ -66,6 +66,7 @@ Place your own controls anywhere; they wire to the map by id:
 | `info`             | `full` / `none`  | `full`  | Show/hide the bottom-left info / creator panel. |
 | `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
 | `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
+| `attribution`      | `true` / `false` | `true`  | Show/hide the small bottom-right credit ("USGS National Map · © OpenStreetMap"). Required acknowledgment for [USGS National Map tiles](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map) and [OpenStreetMap-derived geocoding](https://www.openstreetmap.org/copyright). When you set this to `false` (e.g. you have many maps stacked together), display the credit somewhere else on the page. Auto-suppressed in `chrome="minimal"` (use a single page-level credit when you have a wall of thumbnails). |
 | `chrome`           | `minimal`        | —       | Hides ALL chrome AND disables gestures. The "static preview" mode used by `<map-thumbnail>`. |
 | `click-to-pick`    | `true` / `false` | `false` | Single-click on the map (no drag) recenters via `setView` AND emits `map:select { lat, lon }`. The crosshair stays at the geometric center, so it visually jumps to the click. Use it for picker UIs. Has no effect in `mode="create"` (create's click already opens the add-pin dialog). |
 | `base-url`         | URL              | (auto)  | Where the no-JS forms post. Defaults to `/c/{id}` (view) or `/c/new` (create). |
@@ -164,6 +165,8 @@ Working example: [app/pages/embed/$id.mjs](../pages/embed/$id.mjs) (route: `/emb
 | `--usgs-map-primary-bg/fg`         | `#0066ff` / `#ffffff`         |
 | `--usgs-map-flash-bg/fg/border`    | `#ffe9c2` / `#5b3a00` / `#d4a64a` |
 | `--usgs-map-muted`                 | `#444444`                     |
+| `--usgs-map-attribution-bg`        | `rgba(255,255,255,0.85)`      |
+| `--usgs-map-attribution-fg`        | `#444444`                     |
 
 Slotted children (`<map-pin>`, `<map-nav>`, `<map-scale>`) have their own variables — see their docs.
 

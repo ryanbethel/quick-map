@@ -25,8 +25,8 @@ The map is rendered on the server as a plain `<img>` grid of USGS map tiles. Jav
 | Hosting / dev server | [Architect](https://arc.codes) (`arc sandbox`, `arc deploy`) |
 | Plugin | `@enhance/arc-plugin-enhance` (latest, currently v11.x) |
 | Styles | `@enhance/arc-plugin-styles` (replaces deprecated `@enhance/styles-cribsheet`) |
-| Tile source | USGS National Map: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}` |
-| Geocoding | Nominatim (OpenStreetMap) |
+| Tile source | USGS National Map: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}` ([terms](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map) — public domain, attribution requested) |
+| Geocoding | Nominatim (OpenStreetMap) — see [usage policy](https://operations.osmfoundation.org/policies/nominatim/); OSM-derived data must be attributed per [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright) |
 | Routing (directions) | Public Valhalla (`valhalla1.openstreetmap.de`). Use `fetch`; do not add `@routingjs/*`. |
 | Runtime | Node.js (Lambda), ESM only (`.mjs`) |
 
@@ -109,6 +109,10 @@ npm start          # arc sandbox — local dev (after migration)
 npm run lint       # eslint --fix on app/**/*.mjs
 arc deploy         # deploy to AWS (after migration; requires AWS creds)
 ```
+
+## Attribution
+
+`<usgs-map>` renders a small "USGS National Map · © OpenStreetMap" credit at the bottom-right by default. **Don't remove it without surfacing the same credit elsewhere on the page.** USGS asks for an acknowledgment string for tile use; OSM *requires* attribution wherever its data (geocoding via Nominatim, routing via OSM-based services) is displayed. Suppression toggles (`attribution="false"`, `chrome="minimal"`) exist for layouts that supply a single page-level credit instead — see [`<usgs-map>`'s `attribution` attr](app/elements/usgs-map.md#attributes) and [`<map-thumbnail>`'s attribution note](app/elements/map-thumbnail.md#attribution).
 
 ## When in doubt
 

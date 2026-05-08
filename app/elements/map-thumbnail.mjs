@@ -18,7 +18,7 @@
 // name selectors; per-instance values (width/height) ride on the inner
 // wrapper's inline `style` attribute and never enter the stylesheet.
 
-export default function mapThumbnail ({ html, state }) {
+export default function mapThumbnail({ html, state }) {
   const attrs = state?.attrs || {}
   const width = sizeAttr(attrs.width) || '160px'
   const height = sizeAttr(attrs.height) || '100px'
@@ -82,13 +82,13 @@ export default function mapThumbnail ({ html, state }) {
 `
 }
 
-function sizeAttr (raw) {
+function sizeAttr(raw) {
   if (raw == null || raw === '') return ''
   const s = String(raw).trim()
   if (/^\d+(\.\d+)?$/.test(s)) return s + 'px'
   return s
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }

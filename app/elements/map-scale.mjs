@@ -30,7 +30,7 @@ import { computeScale, renderInnerHTML, hostMaxWidthStyle } from '../browser/map
 // served at /_public/browser/*.
 const MAP_SCALE_LIB_URL = '/_public/browser/map-scale.mjs'
 
-export default function mapScale ({ html, state }) {
+export default function mapScale({ html, state }) {
   const attrs = state?.attrs || {}
   const noScript = attrs['no-script'] != null
 
@@ -97,7 +97,7 @@ ${noScript ? '' : renderScript()}
 `
 }
 
-function renderScript () {
+function renderScript() {
   return /*html*/`
 <script type="module">
 import { computeScale, renderInnerHTML, hostMaxWidthStyle } from '${MAP_SCALE_LIB_URL}'

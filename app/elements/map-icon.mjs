@@ -7,7 +7,7 @@
 // inner <span>, never inside the global stylesheet — see the matching note
 // in usgs-map.mjs for why.
 
-export default function mapIcon ({ html, state }) {
+export default function mapIcon({ html, state }) {
   const attrs = state?.attrs || {}
   const size = parseInt(attrs.size, 10) > 0 ? parseInt(attrs.size, 10) : 24
   const showPin = attrs.pin == null ? true : attrs.pin !== 'false' && attrs.pin !== '0'

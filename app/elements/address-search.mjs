@@ -12,7 +12,7 @@
 //
 // See address-search.md for the full attribute / event reference.
 
-export default function addressSearch ({ html, state }) {
+export default function addressSearch({ html, state }) {
   const attrs = state?.attrs || {}
   const action = attrs.action || '/api/geocode'
   const method = (attrs.method || 'POST').toUpperCase()
@@ -93,7 +93,7 @@ ${script}
 `
 }
 
-function renderScript ({ mode, action, forId, target, zoom, inputName }) {
+function renderScript({ mode, action, forId, target, zoom, inputName }) {
   const direct = mode === 'direct'
   return `
 <script type="module">
@@ -200,6 +200,6 @@ if (!customElements.get('address-search')) {
 </script>`
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }

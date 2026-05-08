@@ -29,6 +29,13 @@
 //                                        info / creator panel.
 //   crosshair              : "false"          - hide the center crosshair.
 //   scale                  : "false"          - hide the bottom-right scale.
+//   attribution            : "false"          - hide the on-map attribution
+//                                        line ("USGS National Map · ©
+//                                        OpenStreetMap"). Defaults to shown
+//                                        whenever chrome is not minimal.
+//                                        When you suppress it here you must
+//                                        surface the attribution somewhere
+//                                        else on the page.
 //   width / height         : (deprecated) — see "Sizing" below.
 //   base-url               : URL       - where forms submit (defaults to the
 //                                        collection-id-derived URL or current pathname)
@@ -72,7 +79,7 @@ const FULL_TILE = 256
 // the path is fingerprinted automatically by the framework.
 const TILES_LIB_URL = '/_public/browser/tiles.mjs'
 
-export default function usgsMap ({ html, state }) {
+export default function usgsMap({ html, state }) {
   const store = state?.store || {}
   const attrs = state?.attrs || {}
 
@@ -101,6 +108,14 @@ export default function usgsMap ({ html, state }) {
   const showInfo = !minimal && !isHidden(attrs.info ?? store.info)
   const showCrosshair = !minimal && !isHidden(attrs.crosshair ?? store.crosshair)
   const showScale = !minimal && !isHidden(attrs.scale ?? store.scale)
+  // Attribution: USGS National Map (tiles, public domain — courtesy
+  // acknowledgment requested by USGS) and © OpenStreetMap contributors
+  // (geocoding data via Nominatim/LocationIQ — required by the OSM
+  // attribution guidelines whenever OSM-derived data is displayed). Default
+  // shown for any non-minimal map. Suppress with `attribution="false"` only
+  // if the credit is rendered elsewhere on the page (e.g. a single page-
+  // level credit when many maps are stacked together).
+  const showAttribution = !minimal && !isHidden(attrs.attribution ?? store.attribution)
   const noScript = attrs['no-script'] != null
   // Opt-in client-side rendering: SSR is unchanged, but once JS mounts the
   // map rebuilds the tile grid, polyline overlay, and pin positions in place
@@ -296,10 +311,38 @@ export default function usgsMap ({ html, state }) {
 
   usgs-map .map-scale-default {
     position: absolute;
-    bottom: 12px;
+    /* Sits above the attribution strip at the bottom-right corner. Stays
+       at this offset whether or not attribution renders so suppressing
+       attribution elsewhere doesn't shift the scale around. */
+    bottom: 28px;
     right: 12px;
     color: var(--usgs-map-fg, #111111);
     z-index: 5;
+  }
+
+  usgs-map .map-attribution {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 4;
+    padding: 1px 6px;
+    background-color: var(--usgs-map-attribution-bg, rgba(255, 255, 255, 0.85));
+    color: var(--usgs-map-attribution-fg, #444444);
+    border-top-left-radius: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    pointer-events: auto;
+    box-shadow: 0 0 0 1px var(--usgs-map-panel-border, #cccccc) inset;
+  }
+
+  usgs-map .map-attribution a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  usgs-map .map-attribution a:hover,
+  usgs-map .map-attribution a:focus {
+    text-decoration: underline;
   }
 
   usgs-map .panel {
@@ -553,8 +596,8 @@ export default function usgsMap ({ html, state }) {
     </div>
 
     ${(clientRender && Array.isArray(polylineCoordinates) && polylineCoordinates.length > 0)
-    ? `<script type="application/json" data-polyline-coords>${escapeJsonForScript(JSON.stringify(polylineCoordinates))}</script>`
-    : ''}
+      ? `<script type="application/json" data-polyline-coords>${escapeJsonForScript(JSON.stringify(polylineCoordinates))}</script>`
+      : ''}
 
     <slot></slot>
   </div>
@@ -562,6 +605,13 @@ export default function usgsMap ({ html, state }) {
   ${showCrosshair ? '<div class="center-crosshair" aria-hidden="true"></div>' : ''}
 
   ${showScale ? `<div class="map-scale-default"><map-scale lat="${centerLat}" zoom="${zoom}" width="80" units="dual"></map-scale></div>` : ''}
+
+  ${showAttribution ? `<div class="map-attribution" aria-label="Map data attribution">
+    <a href="https://nationalmap.gov/" target="_blank" rel="noopener noreferrer"
+       title="Map services and data available from U.S. Geological Survey, National Geospatial Program">USGS National Map</a>
+    &middot;
+    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap</a>
+  </div>` : ''}
 
   ${showControls ? `
   <div class="panel controls" role="group" aria-label="Map controls">
@@ -592,8 +642,8 @@ export default function usgsMap ({ html, state }) {
   </div>` : ''}
 
   ${showInfo ? (mode === 'create'
-    ? renderCreatorPanel({ centerLat, centerLon, zoom, draftPinCount, fit, fitHref: fitHref(baseUrl, fit, gridCols, gridRows, viewW, viewH) })
-    : renderViewerPanel({ title, collectionId, fit, fitHref: fitHref(baseUrl, fit, gridCols, gridRows, viewW, viewH) })) : ''}
+      ? renderCreatorPanel({ centerLat, centerLon, zoom, draftPinCount, fit, fitHref: fitHref(baseUrl, fit, gridCols, gridRows, viewW, viewH) })
+      : renderViewerPanel({ title, collectionId, fit, fitHref: fitHref(baseUrl, fit, gridCols, gridRows, viewW, viewH) })) : ''}
 
   ${(!minimal && mode === 'create') ? `
   <dialog class="add-pin-dialog" aria-label="Add map pin">
@@ -625,7 +675,7 @@ ${noScript ? '' : renderScript()}
 // close this template literal at module-load time and produce a generic
 // "SyntaxError: Unexpected identifier 'X'" at the byte after the stray
 // backtick. Use single quotes / double quotes / "smart" quotes instead.
-function renderScript () {
+function renderScript() {
   return /*html*/`
 <script type="module">
 import {
@@ -1532,7 +1582,7 @@ if (!customElements.get('usgs-map')) {
 </script>`
 }
 
-function renderCreatorPanel ({ centerLat, centerLon, zoom, draftPinCount, fit: _fit, fitHref }) {
+function renderCreatorPanel({ centerLat, centerLon, zoom, draftPinCount, fit: _fit, fitHref }) {
   return `
 <div class="panel info-panel">
   <h2>New collection (${draftPinCount} pin${draftPinCount === 1 ? '' : 's'})</h2>
@@ -1564,7 +1614,7 @@ function renderCreatorPanel ({ centerLat, centerLon, zoom, draftPinCount, fit: _
 `
 }
 
-function renderViewerPanel ({ title, collectionId, fitHref }) {
+function renderViewerPanel({ title, collectionId, fitHref }) {
   return `
 <div class="panel info-panel">
   <h2>${title ? escapeText(title) : 'Collection'}</h2>
@@ -1577,7 +1627,7 @@ function renderViewerPanel ({ title, collectionId, fitHref }) {
 `
 }
 
-function fitHref (baseUrl, fit, cols, rows, w, h) {
+function fitHref(baseUrl, fit, cols, rows, w, h) {
   if (!fit || !baseUrl) return ''
   let qs = '?lat=' + fit.lat.toFixed(6) +
     '&lon=' + fit.lon.toFixed(6) +
@@ -1589,21 +1639,21 @@ function fitHref (baseUrl, fit, cols, rows, w, h) {
   return baseUrl + qs
 }
 
-function escapeText (s) {
+function escapeText(s) {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
 }
 
-function escapeAttr (s) {
+function escapeAttr(s) {
   return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }
 
 // Embed a JSON string inside <script type="application/json">. The HTML
 // parser only stops at "</script", so we just neutralize that sequence.
-function escapeJsonForScript (s) {
+function escapeJsonForScript(s) {
   return String(s).replace(/<\/script/gi, '<\\/script')
 }
 
-function navFields (lat, lon, zoom, cols, rows, w, h) {
+function navFields(lat, lon, zoom, cols, rows, w, h) {
   let out = `<input type="hidden" name="lat" value="${lat}">
       <input type="hidden" name="lon" value="${lon}">
       <input type="hidden" name="zoom" value="${zoom}">
@@ -1614,20 +1664,20 @@ function navFields (lat, lon, zoom, cols, rows, w, h) {
   return out
 }
 
-function clampGrid (n, fallback) {
+function clampGrid(n, fallback) {
   if (!Number.isFinite(n)) return fallback
   return Math.max(3, Math.min(13, n))
 }
 
 // True when an attribute means "hide". `null` / `undefined` / missing means
 // "show" (default). Accepted hide values: "none", "false", "0", "hide", "off".
-function isHidden (raw) {
+function isHidden(raw) {
   if (raw == null) return false
   const s = String(raw).trim().toLowerCase()
   return s === 'none' || s === 'false' || s === '0' || s === 'hide' || s === 'off'
 }
 
-function resolvePolyline (store, attrs) {
+function resolvePolyline(store, attrs) {
   const coords = store?.polylineCoordinates
   if (Array.isArray(coords) && coords.length > 0) return coords
   const encoded = attrs?.polyline
