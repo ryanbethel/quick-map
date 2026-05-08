@@ -127,6 +127,90 @@ export default function Demo ({ html }) {
     font-weight: 600;
   }
   .demo code { font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
+
+  .demo .mobile-presets {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .demo .preset-card {
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    background: #fafafa;
+    padding: 10px;
+  }
+  .demo .preset-card h3 {
+    margin: 0 0 6px;
+  }
+  .demo .preset-card p {
+    margin: 0 0 8px;
+    color: #666;
+    font-size: 12px;
+  }
+  .demo .variant-map {
+    height: 220px;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #e8e8e8;
+  }
+  .demo .variant-map usgs-map {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .demo .variant-compact usgs-map {
+    --usgs-map-control-cell: 28px;
+    --usgs-map-control-gap: 3px;
+    --usgs-map-control-padding: 4px;
+    --usgs-map-control-radius: 4px;
+    --usgs-map-control-panel-radius: 7px;
+    --usgs-map-control-font-size: 14px;
+  }
+  .demo .variant-balanced usgs-map {
+    --usgs-map-control-cell: 34px;
+    --usgs-map-control-gap: 4px;
+    --usgs-map-control-padding: 6px;
+    --usgs-map-control-radius: 6px;
+    --usgs-map-control-font-size: 16px;
+  }
+  .demo .variant-thumb usgs-map {
+    --usgs-map-control-cell: 42px;
+    --usgs-map-control-gap: 5px;
+    --usgs-map-control-padding: 8px;
+    --usgs-map-control-radius: 8px;
+    --usgs-map-control-font-size: 19px;
+  }
+  .demo .variant-zoomonly usgs-map {
+    --usgs-map-mobile-control-cell: 30px;
+    --usgs-map-mobile-control-gap: 4px;
+    --usgs-map-mobile-control-padding: 4px;
+    --usgs-map-mobile-control-font-size: 14px;
+  }
+
+  .demo .nav-presets {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  .demo map-nav.nav-compact {
+    --map-nav-cell: 28px;
+    --map-nav-gap: 3px;
+    --map-nav-padding: 4px;
+    --map-nav-button-radius: 4px;
+  }
+  .demo map-nav.nav-balanced {
+    --map-nav-cell: 34px;
+    --map-nav-gap: 4px;
+    --map-nav-padding: 6px;
+    --map-nav-button-radius: 6px;
+  }
+  .demo map-nav.nav-thumb {
+    --map-nav-cell: 42px;
+    --map-nav-gap: 5px;
+    --map-nav-padding: 8px;
+    --map-nav-button-radius: 8px;
+  }
 </style>
 
 <div class="demo">
@@ -177,6 +261,49 @@ export default function Demo ({ html }) {
   </section>
 
   <section>
+    <h2>Mobile control sizing presets <span class="pattern-tag">restyle knobs</span></h2>
+    <p>Same map, different control layouts. The first three resize the full d-pad. The fourth forces the progressive zoom-only mobile layout so you can preview it on desktop.</p>
+    <div class="mobile-presets">
+      <div class="preset-card variant-compact">
+        <h3>Compact</h3>
+        <p>Best when map viewport is tight and drag is primary.</p>
+        <div class="variant-map">
+          <usgs-map lat="43.6614" lon="-70.2553" zoom="12" render="client" info="none" base-url="/demo">
+            <map-pin lat="43.6614" lon="-70.2553" name="Old Port"></map-pin>
+          </usgs-map>
+        </div>
+      </div>
+      <div class="preset-card variant-balanced">
+        <h3>Balanced</h3>
+        <p>Close to default, just slightly tighter for phones.</p>
+        <div class="variant-map">
+          <usgs-map lat="43.6614" lon="-70.2553" zoom="12" render="client" info="none" base-url="/demo">
+            <map-pin lat="43.6614" lon="-70.2553" name="Old Port"></map-pin>
+          </usgs-map>
+        </div>
+      </div>
+      <div class="preset-card variant-thumb">
+        <h3>Thumb-friendly</h3>
+        <p>Larger tap targets when pan via buttons is common.</p>
+        <div class="variant-map">
+          <usgs-map lat="43.6614" lon="-70.2553" zoom="12" render="client" info="none" base-url="/demo">
+            <map-pin lat="43.6614" lon="-70.2553" name="Old Port"></map-pin>
+          </usgs-map>
+        </div>
+      </div>
+      <div class="preset-card variant-zoomonly">
+        <h3>Zoom-only (forced)</h3>
+        <p>Shows the JS mobile PE layout: compact vertical + / - with drag-to-pan.</p>
+        <div class="variant-map">
+          <usgs-map lat="43.6614" lon="-70.2553" zoom="12" render="client" info="none" base-url="/demo" mobile-nav="zoom-only">
+            <map-pin lat="43.6614" lon="-70.2553" name="Old Port"></map-pin>
+          </usgs-map>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>Fixed-size container <span class="pattern-tag">sizing regression test</span></h2>
     <p>Same group-of-pins map at 320×200. Pins must stay inside the box (this is the off-screen-pin bug that <code>?fit=1</code> + <code>ResizeObserver</code> fix).</p>
     <div class="small-map">
@@ -196,7 +323,20 @@ export default function Demo ({ html }) {
         <address-search target="map" action="/api/geocode" zoom="13" placeholder="Search anywhere"></address-search>
 
         <h3>Manual nav</h3>
-        <map-nav target="map" base-url="/demo/embed" lat="43.66" lon="-70.25" zoom="12" cols="5" rows="5" locate="false"></map-nav>
+        <div class="nav-presets">
+          <div>
+            <p style="margin: 0 0 6px; color: #666; font-size: 12px;">Compact</p>
+            <map-nav class="nav-compact" target="map" base-url="/demo/embed" lat="43.66" lon="-70.25" zoom="12" cols="5" rows="5" locate="false"></map-nav>
+          </div>
+          <div>
+            <p style="margin: 0 0 6px; color: #666; font-size: 12px;">Balanced</p>
+            <map-nav class="nav-balanced" target="map" base-url="/demo/embed" lat="43.66" lon="-70.25" zoom="12" cols="5" rows="5" locate="false"></map-nav>
+          </div>
+          <div>
+            <p style="margin: 0 0 6px; color: #666; font-size: 12px;">Thumb-friendly</p>
+            <map-nav class="nav-thumb" target="map" base-url="/demo/embed" lat="43.66" lon="-70.25" zoom="12" cols="5" rows="5" locate="false"></map-nav>
+          </div>
+        </div>
 
         <h3>Presets</h3>
         <ul class="with-icon">

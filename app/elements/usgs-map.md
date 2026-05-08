@@ -63,6 +63,7 @@ Place your own controls anywhere; they wire to the map by id:
 | `width`            | —                | —       | **Removed.** Size the parent container instead. |
 | `height`           | —                | —       | **Removed.** Size the parent container instead. |
 | `controls`         | `full` / `none`  | `full`  | Show/hide the built-in nav buttons. **Gestures (drag/pinch/dblclick) still work** when `none`. |
+| `mobile-nav`       | `auto` / `zoom-only` / `full` | `auto` | JS-only control layout preference. `auto` collapses to compact vertical `+/-` on coarse-pointer devices; `zoom-only` forces that layout (useful for demos / desktop preview); `full` keeps full d-pad even on mobile. |
 | `info`             | `full` / `none`  | `full`  | Show/hide the bottom-left info / creator panel. |
 | `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
 | `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
@@ -162,6 +163,16 @@ Working example: [app/pages/embed/$id.mjs](../pages/embed/$id.mjs) (route: `/emb
 | `--usgs-map-panel-bg/border/shadow`| `rgba(255,255,255,0.95)` etc. |
 | `--usgs-map-button-bg/fg/border`   | `#ffffff` / `#111111` / `#cccccc` |
 | `--usgs-map-button-hover-bg`       | `#f2f2f2`                     |
+| `--usgs-map-control-cell`          | `36px`                        |
+| `--usgs-map-control-gap`           | `4px`                         |
+| `--usgs-map-control-padding`       | `6px`                         |
+| `--usgs-map-control-radius`        | `6px`                         |
+| `--usgs-map-control-panel-radius`  | `8px`                         |
+| `--usgs-map-control-font-size`     | `16px`                        |
+| `--usgs-map-mobile-control-cell`   | `30px`                        |
+| `--usgs-map-mobile-control-gap`    | `4px`                         |
+| `--usgs-map-mobile-control-padding`| `4px`                         |
+| `--usgs-map-mobile-control-font-size` | `14px`                     |
 | `--usgs-map-primary-bg/fg`         | `#0066ff` / `#ffffff`         |
 | `--usgs-map-flash-bg/fg/border`    | `#ffe9c2` / `#5b3a00` / `#d4a64a` |
 | `--usgs-map-muted`                 | `#444444`                     |
@@ -187,6 +198,7 @@ When authoring a new template, treat anything you'd interpolate into CSS as a sm
 
 - 1 pointer → drag-to-pan; release snaps to nearest tile boundary then navigates.
 - 2 pointers → pinch; release zooms ±1 if scale crosses 1.5× / 0.67×, anchored at midpoint.
+- On coarse-pointer mobile devices with JS enabled, built-in controls progressively collapse to a compact vertical `+` / `−` stack (drag-pan remains available). No-JS keeps the full directional pad.
 - Mouse `dblclick` (view mode only) → zoom +1 centered on click.
 - Click on map (create mode only) → opens `<dialog>` with lat/lon pre-filled.
 - One `<map-pin>` `<details>` open at a time; Esc and outside-click close.

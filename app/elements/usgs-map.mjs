@@ -25,6 +25,10 @@
 //                                        unaffected (drag/pinch/dblclick still
 //                                        work) — use `chrome="minimal"` for
 //                                        a fully static preview.
+//   mobile-nav             : "auto" | "zoom-only" | "full"
+//                                      default "auto". With JS on, controls can
+//                                      collapse to vertical +/- on coarse
+//                                      pointers; set "zoom-only" to force it.
 //   info                   : "full" | "none"  - default "full". Show/hide the
 //                                        info / creator panel.
 //   crosshair              : "false"          - hide the center crosshair.
@@ -372,13 +376,21 @@ export default function usgsMap({ html, state }) {
   usgs-map .controls {
     top: 12px;
     right: 12px;
-    padding: 6px;
+    padding: var(--usgs-map-control-padding, 6px);
     display: grid;
-    grid-template-columns: 36px 36px 36px;
-    grid-template-rows: 36px 36px 36px 36px;
-    gap: 4px;
+    grid-template-columns:
+      var(--usgs-map-control-cell, 36px)
+      var(--usgs-map-control-cell, 36px)
+      var(--usgs-map-control-cell, 36px);
+    grid-template-rows:
+      var(--usgs-map-control-cell, 36px)
+      var(--usgs-map-control-cell, 36px)
+      var(--usgs-map-control-cell, 36px)
+      var(--usgs-map-control-cell, 36px);
+    gap: var(--usgs-map-control-gap, 4px);
     align-items: center;
     justify-items: center;
+    border-radius: var(--usgs-map-control-panel-radius, 8px);
   }
 
   usgs-map .controls form {
@@ -386,19 +398,19 @@ export default function usgsMap({ html, state }) {
   }
 
   usgs-map .controls button {
-    width: 36px;
-    height: 36px;
+    width: var(--usgs-map-control-cell, 36px);
+    height: var(--usgs-map-control-cell, 36px);
     background-color: var(--usgs-map-button-bg, #ffffff);
     color: var(--usgs-map-button-fg, #111111);
     border: 1px solid var(--usgs-map-button-border, #cccccc);
-    border-radius: 6px;
+    border-radius: var(--usgs-map-control-radius, 6px);
     cursor: pointer;
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font: inherit;
-    font-size: 16px;
+    font-size: var(--usgs-map-control-font-size, 16px);
   }
 
   usgs-map .controls button:hover {
@@ -411,6 +423,31 @@ export default function usgsMap({ html, state }) {
   usgs-map .controls .nudge-s { grid-column: 2; grid-row: 3; }
   usgs-map .controls .zoom-in { grid-column: 1; grid-row: 4; }
   usgs-map .controls .zoom-out { grid-column: 3; grid-row: 4; }
+
+  usgs-map .controls.zoom-only {
+    grid-template-columns: var(--usgs-map-mobile-control-cell, 30px);
+    grid-template-rows:
+      var(--usgs-map-mobile-control-cell, 30px)
+      var(--usgs-map-mobile-control-cell, 30px);
+    gap: var(--usgs-map-mobile-control-gap, 4px);
+    padding: var(--usgs-map-mobile-control-padding, 4px);
+  }
+
+  usgs-map .controls.zoom-only .nudge-n,
+  usgs-map .controls.zoom-only .nudge-w,
+  usgs-map .controls.zoom-only .nudge-e,
+  usgs-map .controls.zoom-only .nudge-s {
+    display: none;
+  }
+
+  usgs-map .controls.zoom-only .zoom-in { grid-column: 1; grid-row: 1; }
+  usgs-map .controls.zoom-only .zoom-out { grid-column: 1; grid-row: 2; }
+
+  usgs-map .controls.zoom-only button {
+    width: var(--usgs-map-mobile-control-cell, 30px);
+    height: var(--usgs-map-mobile-control-cell, 30px);
+    font-size: var(--usgs-map-mobile-control-font-size, 14px);
+  }
 
   usgs-map .info-panel {
     bottom: 12px;
@@ -706,6 +743,7 @@ if (!customElements.get('usgs-map')) {
   const SNAP_MS = 130
   const PINCH_ZOOM_IN = 1.5
   const PINCH_ZOOM_OUT = 1 / 1.5
+  const MOBILE_POINTER_QUERY = '(hover: none) and (pointer: coarse)'
   const RESIZE_DEBOUNCE_MS = 350
   const MIN_GRID_EDITOR = 5
   const MIN_GRID_PREVIEW = 3
@@ -754,6 +792,7 @@ if (!customElements.get('usgs-map')) {
       this.baseUrl = d.baseUrl || window.location.pathname
       this.clientRender = d.render === 'client'
       this.clickToPick = d.clickToPick === 'true'
+      this.mobileNavMode = this.getAttribute('mobile-nav') || 'auto'
       // Polyline coords for the route overlay. Shared across rerenders so
       // pan/zoom keeps the same route on screen. Two SSR delivery paths:
       // (a) data-polyline encoded string on the wrap, with optional
@@ -808,6 +847,7 @@ if (!customElements.get('usgs-map')) {
       this.onResizeEntry = this.onResizeEntry.bind(this)
       this.onChildSubmit = this.onChildSubmit.bind(this)
       this.onGeocodeResult = this.onGeocodeResult.bind(this)
+      this.onPointerMediaChange = this.onPointerMediaChange.bind(this)
 
       if (!this.minimal) {
         this.wrap.addEventListener('pointerdown', this.onDown)
@@ -839,9 +879,28 @@ if (!customElements.get('usgs-map')) {
       // Watch our own size, not the window's. Survives iframes and divs.
       this.ro = new ResizeObserver(this.onResizeEntry)
       this.ro.observe(this)
+
+      this.mobilePointerMedia = typeof window.matchMedia === 'function'
+        ? window.matchMedia(MOBILE_POINTER_QUERY)
+        : null
+      this.updateMobileControlLayout()
+      if (this.mobilePointerMedia) {
+        if (typeof this.mobilePointerMedia.addEventListener === 'function') {
+          this.mobilePointerMedia.addEventListener('change', this.onPointerMediaChange)
+        } else if (typeof this.mobilePointerMedia.addListener === 'function') {
+          this.mobilePointerMedia.addListener(this.onPointerMediaChange)
+        }
+      }
     }
 
     disconnectedCallback () {
+      if (this.mobilePointerMedia) {
+        if (typeof this.mobilePointerMedia.removeEventListener === 'function') {
+          this.mobilePointerMedia.removeEventListener('change', this.onPointerMediaChange)
+        } else if (typeof this.mobilePointerMedia.removeListener === 'function') {
+          this.mobilePointerMedia.removeListener(this.onPointerMediaChange)
+        }
+      }
       if (!this.minimal) {
         window.removeEventListener('pointerup', this.onWindowUp)
         window.removeEventListener('pointercancel', this.onWindowCancel)
@@ -1032,6 +1091,27 @@ if (!customElements.get('usgs-map')) {
       const ae = document.activeElement
       if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return false
       return true
+    }
+
+    onPointerMediaChange () {
+      this.updateMobileControlLayout()
+    }
+
+    updateMobileControlLayout () {
+      const controls = this.querySelector('.controls')
+      if (!controls) return
+      if (this.mobileNavMode === 'zoom-only') {
+        controls.classList.add('zoom-only')
+        return
+      }
+      if (this.mobileNavMode === 'full') {
+        controls.classList.remove('zoom-only')
+        return
+      }
+      const coarse = !!(this.mobilePointerMedia && this.mobilePointerMedia.matches)
+      const dragCapable = typeof window.PointerEvent === 'function'
+      const zoomOnly = !this.minimal && coarse && dragCapable
+      controls.classList.toggle('zoom-only', zoomOnly)
     }
 
     // True when the event target is an interactive element that lives
