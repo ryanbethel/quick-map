@@ -26,7 +26,7 @@ The map is rendered on the server as a plain `<img>` grid of USGS map tiles. Jav
 | Plugin | `@enhance/arc-plugin-enhance` (latest, currently v11.x) |
 | Styles | `@enhance/arc-plugin-styles` (replaces deprecated `@enhance/styles-cribsheet`) |
 | Tile source | USGS National Map: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}` ([terms](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map) — public domain, attribution requested) |
-| Geocoding | Nominatim (OpenStreetMap) — see [usage policy](https://operations.osmfoundation.org/policies/nominatim/); OSM-derived data must be attributed per [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright) |
+| Geocoding | LocationIQ (preferred for production — drop-in OSM-data API, see [terms](https://locationiq.com/terms); free tier requires a "Geocoding by LocationIQ" link) or Nominatim (OpenStreetMap, dev only — see [usage policy](https://operations.osmfoundation.org/policies/nominatim/)). OSM-derived data must be attributed per [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright). |
 | Routing (directions) | Public Valhalla (`valhalla1.openstreetmap.de`). Use `fetch`; do not add `@routingjs/*`. |
 | Runtime | Node.js (Lambda), ESM only (`.mjs`) |
 
@@ -112,7 +112,7 @@ arc deploy         # deploy to AWS (after migration; requires AWS creds)
 
 ## Attribution
 
-`<usgs-map>` renders a small "USGS National Map · © OpenStreetMap" credit at the bottom-right by default. **Don't remove it without surfacing the same credit elsewhere on the page.** USGS asks for an acknowledgment string for tile use; OSM *requires* attribution wherever its data (geocoding via Nominatim, routing via OSM-based services) is displayed. Suppression toggles (`attribution="false"`, `chrome="minimal"`) exist for layouts that supply a single page-level credit instead — see [`<usgs-map>`'s `attribution` attr](app/elements/usgs-map.md#attributes) and [`<map-thumbnail>`'s attribution note](app/elements/map-thumbnail.md#attribution).
+`<usgs-map>` renders a small "USGS National Map · © OpenStreetMap · Geocoding by LocationIQ" credit at the bottom-right by default. **Don't remove it without surfacing the same credit elsewhere on the page.** USGS asks for an acknowledgment string for tile use; OSM *requires* attribution wherever its data (geocoding via Nominatim/LocationIQ, routing via OSM-based services) is displayed; LocationIQ's free tier requires a back-link. Suppression toggles (`attribution="false"`, `chrome="minimal"`, `--usgs-map-attribution-locationiq: none`) exist for layouts that supply a single page-level credit instead, or for paid LocationIQ plans — see [`<usgs-map>`'s `attribution` attr](app/elements/usgs-map.md#attributes) and [`<map-thumbnail>`'s attribution note](app/elements/map-thumbnail.md#attribution).
 
 ## When in doubt
 

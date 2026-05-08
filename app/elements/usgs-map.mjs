@@ -109,12 +109,14 @@ export default function usgsMap({ html, state }) {
   const showCrosshair = !minimal && !isHidden(attrs.crosshair ?? store.crosshair)
   const showScale = !minimal && !isHidden(attrs.scale ?? store.scale)
   // Attribution: USGS National Map (tiles, public domain — courtesy
-  // acknowledgment requested by USGS) and © OpenStreetMap contributors
-  // (geocoding data via Nominatim/LocationIQ — required by the OSM
-  // attribution guidelines whenever OSM-derived data is displayed). Default
-  // shown for any non-minimal map. Suppress with `attribution="false"` only
-  // if the credit is rendered elsewhere on the page (e.g. a single page-
-  // level credit when many maps are stacked together).
+  // acknowledgment requested by USGS), © OpenStreetMap contributors
+  // (data — required whenever OSM-derived data is displayed), and
+  // "Geocoding by LocationIQ" (required by LocationIQ's free-tier terms).
+  // Default shown for any non-minimal map. Suppress the entire strip with
+  // `attribution="false"` only if the credit is rendered elsewhere on the
+  // page (e.g. one page-level credit for a wall of thumbnails). To hide
+  // just the LocationIQ link (e.g. on a paid Developer plan), set the CSS
+  // custom property `--usgs-map-attribution-locationiq: none` on the host.
   const showAttribution = !minimal && !isHidden(attrs.attribution ?? store.attribution)
   const noScript = attrs['no-script'] != null
   // Opt-in client-side rendering: SSR is unchanged, but once JS mounts the
@@ -343,6 +345,18 @@ export default function usgsMap({ html, state }) {
   usgs-map .map-attribution a:hover,
   usgs-map .map-attribution a:focus {
     text-decoration: underline;
+  }
+
+  /* The LocationIQ credit is the free-tier attribution that satisfies
+     LocationIQ's terms (https://locationiq.com/terms). Projects on the
+     paid LocationIQ Developer plan or higher can suppress it by setting
+     '--usgs-map-attribution-locationiq: none' on the host. The leading
+     separator span is hidden in lockstep so the line doesn't end with a
+     dangling middle-dot. NB: never use backticks inside this block (it's
+     a template literal). */
+  usgs-map .map-attribution .map-attribution-locationiq,
+  usgs-map .map-attribution .map-attribution-locationiq-sep {
+    display: var(--usgs-map-attribution-locationiq, inline);
   }
 
   usgs-map .panel {
@@ -608,9 +622,7 @@ export default function usgsMap({ html, state }) {
 
   ${showAttribution ? `<div class="map-attribution" aria-label="Map data attribution">
     <a href="https://nationalmap.gov/" target="_blank" rel="noopener noreferrer"
-       title="Map services and data available from U.S. Geological Survey, National Geospatial Program">USGS National Map</a>
-    &middot;
-    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap</a>
+       title="Map services and data available from U.S. Geological Survey, National Geospatial Program">USGS National Map</a><span class="map-attribution-sep"> &middot; </span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap</a><span class="map-attribution-locationiq-sep"> &middot; </span><a class="map-attribution-locationiq" href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Geocoding by LocationIQ</a>
   </div>` : ''}
 
   ${showControls ? `
@@ -786,6 +798,10 @@ if (!customElements.get('usgs-map')) {
       this.onMove = this.onMove.bind(this)
       this.onUp = this.onUp.bind(this)
       this.onCancel = this.onCancel.bind(this)
+      this.onWindowUp = this.onWindowUp.bind(this)
+      this.onWindowCancel = this.onWindowCancel.bind(this)
+      this.onWindowBlur = this.onWindowBlur.bind(this)
+      this.onVisibilityChange = this.onVisibilityChange.bind(this)
       this.onDblClick = this.onDblClick.bind(this)
       this.onKeydown = this.onKeydown.bind(this)
       this.onDocClick = this.onDocClick.bind(this)
@@ -798,11 +814,15 @@ if (!customElements.get('usgs-map')) {
         this.wrap.addEventListener('pointermove', this.onMove)
         this.wrap.addEventListener('pointerup', this.onUp)
         this.wrap.addEventListener('pointercancel', this.onCancel)
+        window.addEventListener('pointerup', this.onWindowUp)
+        window.addEventListener('pointercancel', this.onWindowCancel)
         this.wrap.addEventListener('dblclick', this.onDblClick)
         this.wrap.style.cursor = ''
       } else {
         this.wrap.style.cursor = 'default'
       }
+      window.addEventListener('blur', this.onWindowBlur)
+      document.addEventListener('visibilitychange', this.onVisibilityChange)
       document.addEventListener('keydown', this.onKeydown)
       document.addEventListener('click', this.onDocClick)
 
@@ -822,6 +842,12 @@ if (!customElements.get('usgs-map')) {
     }
 
     disconnectedCallback () {
+      if (!this.minimal) {
+        window.removeEventListener('pointerup', this.onWindowUp)
+        window.removeEventListener('pointercancel', this.onWindowCancel)
+      }
+      window.removeEventListener('blur', this.onWindowBlur)
+      document.removeEventListener('visibilitychange', this.onVisibilityChange)
       document.removeEventListener('keydown', this.onKeydown)
       document.removeEventListener('click', this.onDocClick)
       if (this.ro) this.ro.disconnect()
@@ -1019,6 +1045,31 @@ if (!customElements.get('usgs-map')) {
       return !!matched && this.contains(matched)
     }
 
+    resetPointerTracking () {
+      this.pointers.clear()
+      this.residualPointers.clear()
+      if (this.pinching) this.abortPinch()
+      if (this.dragging) this.cancelDrag()
+    }
+
+    onWindowUp (e) {
+      if (!this.pointers.has(e.pointerId)) return
+      this.onUp(e)
+    }
+
+    onWindowCancel (e) {
+      if (!this.pointers.has(e.pointerId)) return
+      this.onCancel(e)
+    }
+
+    onWindowBlur () {
+      this.resetPointerTracking()
+    }
+
+    onVisibilityChange () {
+      if (document.visibilityState !== 'visible') this.resetPointerTracking()
+    }
+
     // ─── Pointer plumbing ──────────────────────────────────────────────
     onDown (e) {
       if (this.animating) return
@@ -1029,6 +1080,12 @@ if (!customElements.get('usgs-map')) {
       // would silently kill drag for every map nested in a modal.
       if (this.isInteractiveChild(e.target)) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
+
+      // Touch primary pointer changed while we still have tracked pointers.
+      // This means the previous pointer lifecycle likely ended off-element.
+      if (e.pointerType !== 'mouse' && e.isPrimary && this.pointers.size > 0 && !this.pointers.has(e.pointerId)) {
+        this.resetPointerTracking()
+      }
 
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -1081,7 +1138,7 @@ if (!customElements.get('usgs-map')) {
       this.pointers.delete(e.pointerId)
       this.residualPointers.delete(e.pointerId)
       if (this.pinching) {
-        this.abortPinch()
+        if (this.pointers.size < 2) this.resetPointerTracking()
         return
       }
       if (this.dragging && e.pointerId === this.dragPointerId) {
@@ -1169,6 +1226,9 @@ if (!customElements.get('usgs-map')) {
     startPinch () {
       const pts = Array.from(this.pointers.values())
       if (pts.length < 2) return
+      for (const id of this.pointers.keys()) {
+        try { this.wrap.setPointerCapture(id) } catch {}
+      }
       const a = pts[0], b = pts[1]
       const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1
       const midX = (a.x + b.x) / 2

@@ -48,14 +48,18 @@ Same as `<usgs-map>` for tile fetching (USGS basemap tiles are public). No addit
 
 ## Attribution
 
-Thumbnails inherit `chrome="minimal"`, which suppresses the on-map credit that `<usgs-map>` shows by default — a single thumbnail isn't tall enough to carry "USGS National Map · © OpenStreetMap" without the credit dominating it. **The host page is responsible for displaying the credit somewhere visible** when it renders `<map-thumbnail>` (or any non-trivial number of thumbnails). The shortest acceptable form is the same string `<usgs-map>` would render:
+Thumbnails inherit `chrome="minimal"`, which suppresses the on-map credit that `<usgs-map>` shows by default — a single thumbnail isn't tall enough to carry "USGS National Map · © OpenStreetMap · Geocoding by LocationIQ" without the credit dominating it. **The host page is responsible for displaying the credit somewhere visible** when it renders `<map-thumbnail>` (or any non-trivial number of thumbnails). The shortest acceptable form is the same string `<usgs-map>` would render:
 
 ```html
 <p>
   <a href="https://nationalmap.gov/">USGS National Map</a>
   &middot;
   <a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap</a>
+  &middot;
+  <a href="https://locationiq.com">Geocoding by LocationIQ</a>
 </p>
 ```
+
+Drop the LocationIQ link only if your project doesn't actually use the `<address-search>` / LocationIQ geocoding integration, or if you're on a paid LocationIQ Developer plan that waives the link requirement.
 
 Pages that mix one full `<usgs-map>` with several `<map-thumbnail>` previews get this for free via the full map's built-in credit and don't need to add their own.
