@@ -63,11 +63,10 @@ Place your own controls anywhere; they wire to the map by id:
 | `width`            | —                | —       | **Removed.** Size the parent container instead. |
 | `height`           | —                | —       | **Removed.** Size the parent container instead. |
 | `controls`         | `full` / `none`  | `full`  | Show/hide the built-in nav buttons. **Gestures (drag/pinch/dblclick) still work** when `none`. |
-| `mobile-nav`       | `auto` / `zoom-only` / `full` | `auto` | JS-only control layout preference. `auto` collapses to compact vertical `+/-` on coarse-pointer devices; `zoom-only` forces that layout (useful for demos / desktop preview); `full` keeps full d-pad even on mobile. |
 | `info`             | `full` / `none`  | `full`  | Show/hide the bottom-left info / creator panel. |
 | `crosshair`        | `true` / `false` | `true`  | Show/hide the center crosshair dot. |
 | `scale`            | `true` / `false` | `true`  | Show/hide the bottom-right scale label. |
-| `attribution`      | `true` / `false` | `true`  | Show/hide the small bottom-right credit strip ("USGS National Map · © OpenStreetMap · Geocoding by LocationIQ"). Required acknowledgment for [USGS National Map tiles](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map), [OpenStreetMap-derived geocoding](https://www.openstreetmap.org/copyright), and [LocationIQ's free tier](https://locationiq.com/terms). When you set this to `false` (e.g. you have many maps stacked together), display the credit somewhere else on the page. Auto-suppressed in `chrome="minimal"` (use a single page-level credit when you have a wall of thumbnails). To hide *only* the LocationIQ link (e.g. on a paid LocationIQ Developer plan that doesn't require it), set `--usgs-map-attribution-locationiq: none` on the host. |
+| `attribution`      | `true` / `compact` / `false` | `true`  | Show/hide the small bottom-right credit strip. Default (`true`) renders the full text ("USGS National Map · © OpenStreetMap · Geocoding by LocationIQ"). `compact` keeps all three required acknowledgments but swaps in shorter labels ("USGS Map · © OpenStreetMap · LocationIQ") plus a `.map-attribution-compact` class hook, so the strip stays on one line inside narrow containers (mobile dialogs, sidebars, picker modals). `false` hides the strip entirely. Required acknowledgment for [USGS National Map tiles](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map), [OpenStreetMap-derived geocoding](https://www.openstreetmap.org/copyright), and [LocationIQ's free tier](https://locationiq.com/terms) — see the [Attribution](#attribution) section for which knobs are safe in which situations. Auto-suppressed in `chrome="minimal"` (use a single page-level credit when you have a wall of thumbnails). To hide *only* the LocationIQ link (e.g. on a paid LocationIQ Developer plan that doesn't require it), set `--usgs-map-attribution-locationiq: none` on the host. |
 | `chrome`           | `minimal`        | —       | Hides ALL chrome AND disables gestures. The "static preview" mode used by `<map-thumbnail>`. |
 | `click-to-pick`    | `true` / `false` | `false` | Single-click on the map (no drag) recenters via `setView` AND emits `map:select { lat, lon }`. The crosshair stays at the geometric center, so it visually jumps to the click. Use it for picker UIs. Has no effect in `mode="create"` (create's click already opens the add-pin dialog). |
 | `base-url`         | URL              | (auto)  | Where the no-JS forms post. Defaults to `/c/{id}` (view) or `/c/new` (create). |
@@ -128,6 +127,29 @@ Every gesture / form submission lands at `?lat=…&lon=…&zoom=…&cols=…&row
 
 Navigation (gestures, `ResizeObserver` refit, imperative `setView` / `zoomIn` / `panBy` / `fitPins`) only fires when `base-url` matches `window.location.pathname`. If the map is embedded on a host page that owns a different URL — say a kitchen-sink page hosting `<usgs-map base-url="/demo/embed">` — the client will *not* call `window.location.assign()` (which would otherwise reload the host and, with `ResizeObserver`, infinite-loop). For interactive embeds, put the map in an `<iframe src="/its-own-url">` so it owns the URL inside the frame. For static previews, use `chrome="minimal"` or `<map-thumbnail>`. `map:move` events still fire so consumers can react however they like.
 
+## Attribution
+
+The bottom-right credit strip carries three acknowledgments. Each has its own status:
+
+| credit                | status | source |
+| --------------------- | ------ | ------ |
+| **USGS National Map** | Courtesy acknowledgment requested. Not strictly required. | [USGS National Map terms](https://www.usgs.gov/faqs/what-are-terms-uselicensing-map-services-and-data-national-map) |
+| **© OpenStreetMap**   | **Required** whenever OSM-derived data is on the page. The geocoding (Nominatim or LocationIQ) returns OSM data, so this credit applies as soon as `<address-search>` is wired up — even if no pin has been placed yet. The "©" must be preserved; OSM's own short form when space is tight is "© OSM". | [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright) |
+| **Geocoding by LocationIQ** | Required on LocationIQ's free tier. Waived on paid Developer plans. | [locationiq.com/terms](https://locationiq.com/terms) |
+
+Available knobs:
+
+| knob | effect | when to use |
+| ---- | ------ | ----------- |
+| `attribution="true"` (default) | Full strip: `USGS National Map · © OpenStreetMap · Geocoding by LocationIQ`. | Most cases. |
+| `attribution="compact"` | Shorter labels: `USGS Map · © OpenStreetMap · LocationIQ`. Same URLs, same `<a>` classes. Adds a `.map-attribution-compact` hook for further CSS overrides. | Mobile dialogs, narrow containers, picker modals where the full strip wraps. The "Geocoding by" prefix is dropped from LocationIQ — only safe on a paid LocationIQ plan, or when "Geocoding by LocationIQ" is rendered elsewhere on the page. |
+| `attribution="false"` | Strip is hidden entirely. | A wall of thumbnails sharing one page-level credit, or a host page that already surfaces all three acknowledgments somewhere else. |
+| `chrome="minimal"` | Implies `attribution="false"` plus all other chrome off. | Static previews, `<map-thumbnail>`. |
+| CSS var `--usgs-map-attribution-locationiq: none` | Hides only the LocationIQ link + its separator. | Paid LocationIQ Developer plan. |
+| CSS var `--usgs-map-attribution-bg`, `-fg` | Strip background / foreground colors. | Theming. |
+
+Hide- *required* attributions only if they are surfaced somewhere else on the same page; the strip exists so you don't have to think about it.
+
 ## Endpoints `<usgs-map>` and `<map-pin>` POST to (create mode)
 
 | method/url           | from                   | body                       |
@@ -163,16 +185,6 @@ Working example: [app/pages/embed/$id.mjs](../pages/embed/$id.mjs) (route: `/emb
 | `--usgs-map-panel-bg/border/shadow`| `rgba(255,255,255,0.95)` etc. |
 | `--usgs-map-button-bg/fg/border`   | `#ffffff` / `#111111` / `#cccccc` |
 | `--usgs-map-button-hover-bg`       | `#f2f2f2`                     |
-| `--usgs-map-control-cell`          | `36px`                        |
-| `--usgs-map-control-gap`           | `4px`                         |
-| `--usgs-map-control-padding`       | `6px`                         |
-| `--usgs-map-control-radius`        | `6px`                         |
-| `--usgs-map-control-panel-radius`  | `8px`                         |
-| `--usgs-map-control-font-size`     | `16px`                        |
-| `--usgs-map-mobile-control-cell`   | `30px`                        |
-| `--usgs-map-mobile-control-gap`    | `4px`                         |
-| `--usgs-map-mobile-control-padding`| `4px`                         |
-| `--usgs-map-mobile-control-font-size` | `14px`                     |
 | `--usgs-map-primary-bg/fg`         | `#0066ff` / `#ffffff`         |
 | `--usgs-map-flash-bg/fg/border`    | `#ffe9c2` / `#5b3a00` / `#d4a64a` |
 | `--usgs-map-muted`                 | `#444444`                     |
@@ -198,7 +210,6 @@ When authoring a new template, treat anything you'd interpolate into CSS as a sm
 
 - 1 pointer → drag-to-pan; release snaps to nearest tile boundary then navigates.
 - 2 pointers → pinch; release zooms ±1 if scale crosses 1.5× / 0.67×, anchored at midpoint.
-- On coarse-pointer mobile devices with JS enabled, built-in controls progressively collapse to a compact vertical `+` / `−` stack (drag-pan remains available). No-JS keeps the full directional pad.
 - Mouse `dblclick` (view mode only) → zoom +1 centered on click.
 - Click on map (create mode only) → opens `<dialog>` with lat/lon pre-filled.
 - One `<map-pin>` `<details>` open at a time; Esc and outside-click close.

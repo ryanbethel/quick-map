@@ -25,10 +25,6 @@
 //                                        unaffected (drag/pinch/dblclick still
 //                                        work) — use `chrome="minimal"` for
 //                                        a fully static preview.
-//   mobile-nav             : "auto" | "zoom-only" | "full"
-//                                      default "auto". With JS on, controls can
-//                                      collapse to vertical +/- on coarse
-//                                      pointers; set "zoom-only" to force it.
 //   info                   : "full" | "none"  - default "full". Show/hide the
 //                                        info / creator panel.
 //   crosshair              : "false"          - hide the center crosshair.
@@ -121,7 +117,18 @@ export default function usgsMap({ html, state }) {
   // page (e.g. one page-level credit for a wall of thumbnails). To hide
   // just the LocationIQ link (e.g. on a paid Developer plan), set the CSS
   // custom property `--usgs-map-attribution-locationiq: none` on the host.
-  const showAttribution = !minimal && !isHidden(attrs.attribution ?? store.attribution)
+  //
+  // `attribution="compact"` keeps all three required acknowledgments but
+  // swaps in shorter labels ("USGS Map · © OpenStreetMap · LocationIQ")
+  // so the strip stays on one line in narrow containers (mobile dialogs,
+  // sidebars, picker modals). The "©" before OpenStreetMap is preserved
+  // because OSM's terms require it; "Geocoding by" is dropped from the
+  // LocationIQ link (LocationIQ's free-tier prefers the longer phrase, so
+  // only use compact mode on paid Developer plans or when you also surface
+  // "Geocoding by LocationIQ" elsewhere on the page).
+  const attributionRaw = attrs.attribution ?? store.attribution
+  const showAttribution = !minimal && !isHidden(attributionRaw)
+  const compactAttribution = typeof attributionRaw === 'string' && attributionRaw.toLowerCase() === 'compact'
   const noScript = attrs['no-script'] != null
   // Opt-in client-side rendering: SSR is unchanged, but once JS mounts the
   // map rebuilds the tile grid, polyline overlay, and pin positions in place
@@ -376,21 +383,13 @@ export default function usgsMap({ html, state }) {
   usgs-map .controls {
     top: 12px;
     right: 12px;
-    padding: var(--usgs-map-control-padding, 6px);
+    padding: 6px;
     display: grid;
-    grid-template-columns:
-      var(--usgs-map-control-cell, 36px)
-      var(--usgs-map-control-cell, 36px)
-      var(--usgs-map-control-cell, 36px);
-    grid-template-rows:
-      var(--usgs-map-control-cell, 36px)
-      var(--usgs-map-control-cell, 36px)
-      var(--usgs-map-control-cell, 36px)
-      var(--usgs-map-control-cell, 36px);
-    gap: var(--usgs-map-control-gap, 4px);
+    grid-template-columns: 36px 36px 36px;
+    grid-template-rows: 36px 36px 36px 36px;
+    gap: 4px;
     align-items: center;
     justify-items: center;
-    border-radius: var(--usgs-map-control-panel-radius, 8px);
   }
 
   usgs-map .controls form {
@@ -398,19 +397,19 @@ export default function usgsMap({ html, state }) {
   }
 
   usgs-map .controls button {
-    width: var(--usgs-map-control-cell, 36px);
-    height: var(--usgs-map-control-cell, 36px);
+    width: 36px;
+    height: 36px;
     background-color: var(--usgs-map-button-bg, #ffffff);
     color: var(--usgs-map-button-fg, #111111);
     border: 1px solid var(--usgs-map-button-border, #cccccc);
-    border-radius: var(--usgs-map-control-radius, 6px);
+    border-radius: 6px;
     cursor: pointer;
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font: inherit;
-    font-size: var(--usgs-map-control-font-size, 16px);
+    font-size: 16px;
   }
 
   usgs-map .controls button:hover {
@@ -423,31 +422,6 @@ export default function usgsMap({ html, state }) {
   usgs-map .controls .nudge-s { grid-column: 2; grid-row: 3; }
   usgs-map .controls .zoom-in { grid-column: 1; grid-row: 4; }
   usgs-map .controls .zoom-out { grid-column: 3; grid-row: 4; }
-
-  usgs-map .controls.zoom-only {
-    grid-template-columns: var(--usgs-map-mobile-control-cell, 30px);
-    grid-template-rows:
-      var(--usgs-map-mobile-control-cell, 30px)
-      var(--usgs-map-mobile-control-cell, 30px);
-    gap: var(--usgs-map-mobile-control-gap, 4px);
-    padding: var(--usgs-map-mobile-control-padding, 4px);
-  }
-
-  usgs-map .controls.zoom-only .nudge-n,
-  usgs-map .controls.zoom-only .nudge-w,
-  usgs-map .controls.zoom-only .nudge-e,
-  usgs-map .controls.zoom-only .nudge-s {
-    display: none;
-  }
-
-  usgs-map .controls.zoom-only .zoom-in { grid-column: 1; grid-row: 1; }
-  usgs-map .controls.zoom-only .zoom-out { grid-column: 1; grid-row: 2; }
-
-  usgs-map .controls.zoom-only button {
-    width: var(--usgs-map-mobile-control-cell, 30px);
-    height: var(--usgs-map-mobile-control-cell, 30px);
-    font-size: var(--usgs-map-mobile-control-font-size, 14px);
-  }
 
   usgs-map .info-panel {
     bottom: 12px;
@@ -657,9 +631,9 @@ export default function usgsMap({ html, state }) {
 
   ${showScale ? `<div class="map-scale-default"><map-scale lat="${centerLat}" zoom="${zoom}" width="80" units="dual"></map-scale></div>` : ''}
 
-  ${showAttribution ? `<div class="map-attribution" aria-label="Map data attribution">
+  ${showAttribution ? `<div class="map-attribution${compactAttribution ? ' map-attribution-compact' : ''}" aria-label="Map data attribution">
     <a href="https://nationalmap.gov/" target="_blank" rel="noopener noreferrer"
-       title="Map services and data available from U.S. Geological Survey, National Geospatial Program">USGS National Map</a><span class="map-attribution-sep"> &middot; </span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">&copy; OpenStreetMap</a><span class="map-attribution-locationiq-sep"> &middot; </span><a class="map-attribution-locationiq" href="https://locationiq.com" target="_blank" rel="noopener noreferrer">Geocoding by LocationIQ</a>
+       title="Map services and data available from U.S. Geological Survey, National Geospatial Program">${compactAttribution ? 'USGS Map' : 'USGS National Map'}</a><span class="map-attribution-sep"> &middot; </span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" title="Map data &copy; OpenStreetMap contributors">&copy; OpenStreetMap</a><span class="map-attribution-locationiq-sep"> &middot; </span><a class="map-attribution-locationiq" href="https://locationiq.com" target="_blank" rel="noopener noreferrer"${compactAttribution ? ' title="Geocoding by LocationIQ"' : ''}>${compactAttribution ? 'LocationIQ' : 'Geocoding by LocationIQ'}</a>
   </div>` : ''}
 
   ${showControls ? `
@@ -743,7 +717,6 @@ if (!customElements.get('usgs-map')) {
   const SNAP_MS = 130
   const PINCH_ZOOM_IN = 1.5
   const PINCH_ZOOM_OUT = 1 / 1.5
-  const MOBILE_POINTER_QUERY = '(hover: none) and (pointer: coarse)'
   const RESIZE_DEBOUNCE_MS = 350
   const MIN_GRID_EDITOR = 5
   const MIN_GRID_PREVIEW = 3
@@ -792,7 +765,6 @@ if (!customElements.get('usgs-map')) {
       this.baseUrl = d.baseUrl || window.location.pathname
       this.clientRender = d.render === 'client'
       this.clickToPick = d.clickToPick === 'true'
-      this.mobileNavMode = this.getAttribute('mobile-nav') || 'auto'
       // Polyline coords for the route overlay. Shared across rerenders so
       // pan/zoom keeps the same route on screen. Two SSR delivery paths:
       // (a) data-polyline encoded string on the wrap, with optional
@@ -837,32 +809,23 @@ if (!customElements.get('usgs-map')) {
       this.onMove = this.onMove.bind(this)
       this.onUp = this.onUp.bind(this)
       this.onCancel = this.onCancel.bind(this)
-      this.onWindowUp = this.onWindowUp.bind(this)
-      this.onWindowCancel = this.onWindowCancel.bind(this)
-      this.onWindowBlur = this.onWindowBlur.bind(this)
-      this.onVisibilityChange = this.onVisibilityChange.bind(this)
       this.onDblClick = this.onDblClick.bind(this)
       this.onKeydown = this.onKeydown.bind(this)
       this.onDocClick = this.onDocClick.bind(this)
       this.onResizeEntry = this.onResizeEntry.bind(this)
       this.onChildSubmit = this.onChildSubmit.bind(this)
       this.onGeocodeResult = this.onGeocodeResult.bind(this)
-      this.onPointerMediaChange = this.onPointerMediaChange.bind(this)
 
       if (!this.minimal) {
         this.wrap.addEventListener('pointerdown', this.onDown)
         this.wrap.addEventListener('pointermove', this.onMove)
         this.wrap.addEventListener('pointerup', this.onUp)
         this.wrap.addEventListener('pointercancel', this.onCancel)
-        window.addEventListener('pointerup', this.onWindowUp)
-        window.addEventListener('pointercancel', this.onWindowCancel)
         this.wrap.addEventListener('dblclick', this.onDblClick)
         this.wrap.style.cursor = ''
       } else {
         this.wrap.style.cursor = 'default'
       }
-      window.addEventListener('blur', this.onWindowBlur)
-      document.addEventListener('visibilitychange', this.onVisibilityChange)
       document.addEventListener('keydown', this.onKeydown)
       document.addEventListener('click', this.onDocClick)
 
@@ -879,34 +842,9 @@ if (!customElements.get('usgs-map')) {
       // Watch our own size, not the window's. Survives iframes and divs.
       this.ro = new ResizeObserver(this.onResizeEntry)
       this.ro.observe(this)
-
-      this.mobilePointerMedia = typeof window.matchMedia === 'function'
-        ? window.matchMedia(MOBILE_POINTER_QUERY)
-        : null
-      this.updateMobileControlLayout()
-      if (this.mobilePointerMedia) {
-        if (typeof this.mobilePointerMedia.addEventListener === 'function') {
-          this.mobilePointerMedia.addEventListener('change', this.onPointerMediaChange)
-        } else if (typeof this.mobilePointerMedia.addListener === 'function') {
-          this.mobilePointerMedia.addListener(this.onPointerMediaChange)
-        }
-      }
     }
 
     disconnectedCallback () {
-      if (this.mobilePointerMedia) {
-        if (typeof this.mobilePointerMedia.removeEventListener === 'function') {
-          this.mobilePointerMedia.removeEventListener('change', this.onPointerMediaChange)
-        } else if (typeof this.mobilePointerMedia.removeListener === 'function') {
-          this.mobilePointerMedia.removeListener(this.onPointerMediaChange)
-        }
-      }
-      if (!this.minimal) {
-        window.removeEventListener('pointerup', this.onWindowUp)
-        window.removeEventListener('pointercancel', this.onWindowCancel)
-      }
-      window.removeEventListener('blur', this.onWindowBlur)
-      document.removeEventListener('visibilitychange', this.onVisibilityChange)
       document.removeEventListener('keydown', this.onKeydown)
       document.removeEventListener('click', this.onDocClick)
       if (this.ro) this.ro.disconnect()
@@ -1093,27 +1031,6 @@ if (!customElements.get('usgs-map')) {
       return true
     }
 
-    onPointerMediaChange () {
-      this.updateMobileControlLayout()
-    }
-
-    updateMobileControlLayout () {
-      const controls = this.querySelector('.controls')
-      if (!controls) return
-      if (this.mobileNavMode === 'zoom-only') {
-        controls.classList.add('zoom-only')
-        return
-      }
-      if (this.mobileNavMode === 'full') {
-        controls.classList.remove('zoom-only')
-        return
-      }
-      const coarse = !!(this.mobilePointerMedia && this.mobilePointerMedia.matches)
-      const dragCapable = typeof window.PointerEvent === 'function'
-      const zoomOnly = !this.minimal && coarse && dragCapable
-      controls.classList.toggle('zoom-only', zoomOnly)
-    }
-
     // True when the event target is an interactive element that lives
     // INSIDE this map (a slotted map-pin, chrome button/form, our own
     // add-pin dialog, etc.). Bounded by the host element so an ancestor
@@ -1123,31 +1040,6 @@ if (!customElements.get('usgs-map')) {
       if (!target || typeof target.closest !== 'function') return false
       const matched = target.closest('map-pin, button, a, input, summary, details, form, dialog')
       return !!matched && this.contains(matched)
-    }
-
-    resetPointerTracking () {
-      this.pointers.clear()
-      this.residualPointers.clear()
-      if (this.pinching) this.abortPinch()
-      if (this.dragging) this.cancelDrag()
-    }
-
-    onWindowUp (e) {
-      if (!this.pointers.has(e.pointerId)) return
-      this.onUp(e)
-    }
-
-    onWindowCancel (e) {
-      if (!this.pointers.has(e.pointerId)) return
-      this.onCancel(e)
-    }
-
-    onWindowBlur () {
-      this.resetPointerTracking()
-    }
-
-    onVisibilityChange () {
-      if (document.visibilityState !== 'visible') this.resetPointerTracking()
     }
 
     // ─── Pointer plumbing ──────────────────────────────────────────────
@@ -1160,12 +1052,6 @@ if (!customElements.get('usgs-map')) {
       // would silently kill drag for every map nested in a modal.
       if (this.isInteractiveChild(e.target)) return
       if (e.pointerType === 'mouse' && e.button !== 0) return
-
-      // Touch primary pointer changed while we still have tracked pointers.
-      // This means the previous pointer lifecycle likely ended off-element.
-      if (e.pointerType !== 'mouse' && e.isPrimary && this.pointers.size > 0 && !this.pointers.has(e.pointerId)) {
-        this.resetPointerTracking()
-      }
 
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
@@ -1218,7 +1104,7 @@ if (!customElements.get('usgs-map')) {
       this.pointers.delete(e.pointerId)
       this.residualPointers.delete(e.pointerId)
       if (this.pinching) {
-        if (this.pointers.size < 2) this.resetPointerTracking()
+        this.abortPinch()
         return
       }
       if (this.dragging && e.pointerId === this.dragPointerId) {
@@ -1306,9 +1192,6 @@ if (!customElements.get('usgs-map')) {
     startPinch () {
       const pts = Array.from(this.pointers.values())
       if (pts.length < 2) return
-      for (const id of this.pointers.keys()) {
-        try { this.wrap.setPointerCapture(id) } catch {}
-      }
       const a = pts[0], b = pts[1]
       const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1
       const midX = (a.x + b.x) / 2
